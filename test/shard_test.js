@@ -11,7 +11,7 @@ describe('Shard', () => {
 
   beforeEach(async () => {
     cipher = await AesGcmSingleKeyCipher.generate()
-    verifier = new Verifier({ key: await Verifier.generateKey() })
+    verifier = await Verifier.generate()
     shard = await Shard.parse(null, cipher, verifier)
   })
 

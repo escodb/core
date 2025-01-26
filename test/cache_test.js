@@ -14,7 +14,7 @@ testWithAdapters('Cache', (impl) => {
   beforeEach(async () => {
     adapter = impl.createAdapter()
     cipher = await AesGcmSingleKeyCipher.generate()
-    verifier = new Verifier({ key: await Verifier.generateKey() })
+    verifier = await Verifier.generate()
     cache = new Cache(adapter, cipher, verifier)
   })
 

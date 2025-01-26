@@ -9,7 +9,7 @@ describe('Verifier', () => {
   let verifier
 
   beforeEach(async () => {
-    verifier = new Verifier({ key: await Verifier.generateKey() })
+    verifier = await Verifier.generate()
   })
 
   it('signs a payload', async () => {

@@ -14,7 +14,7 @@ describe('AesGcmKeySequenceCipher', () => {
   testCipherBehaviour({
     async createCipher () {
       let root = await AesGcmSingleKeyCipher.generate()
-      let verifier = new Verifier({ key: await Verifier.generateKey() })
+      let verifier = await Verifier.generate()
       return new AesGcmKeySequenceCipher(root, verifier)
     }
   })
@@ -24,7 +24,7 @@ describe('AesGcmKeySequenceCipher', () => {
 
     beforeEach(async () => {
       root = await AesGcmSingleKeyCipher.generate()
-      verifier = new Verifier({ key: await Verifier.generateKey() })
+      verifier = await Verifier.generate()
       cipher = new AesGcmKeySequenceCipher(root, verifier, { limit: LIMIT })
     })
 

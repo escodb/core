@@ -25,9 +25,9 @@ testWithAdapters('Task', (impl) => {
   }
 
   beforeEach(async () => {
-    router = new Router({ n: 2, key: await Router.generateKey() })
+    router = new Router({ n: 4, key: await Router.generateKey() })
     cipher = await AesGcmSingleKeyCipher.generate()
-    verifier = new Verifier({ key: await Verifier.generateKey() })
+    verifier = await Verifier.generate()
     adapter = impl.createAdapter()
     task = newTask()
     checker = newTask()

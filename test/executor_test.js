@@ -15,7 +15,7 @@ testWithAdapters('Executor', (impl) => {
   beforeEach(async () => {
     store = impl.createAdapter()
     cipher = await AesGcmSingleKeyCipher.generate()
-    verifier = new Verifier({ key: await Verifier.generateKey() })
+    verifier = await Verifier.generate()
     executor = new Executor(new Cache(store, cipher, verifier))
     cache = new Cache(store, cipher, verifier)
   })
