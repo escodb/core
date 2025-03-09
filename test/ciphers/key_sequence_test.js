@@ -1,7 +1,7 @@
 'use strict'
 
-const AesGcmSingleKeyCipher = require('../../lib/ciphers/aes_gcm_single_key')
-const AesGcmKeySequenceCipher = require('../../lib/ciphers/aes_gcm_key_sequence')
+const AesGcmCipher = require('../../lib/ciphers/aes_gcm')
+const KeySequenceCipher = require('../../lib/ciphers/key_sequence')
 const crypto = require('../../lib/crypto')
 const Verifier = require('../../lib/verifier')
 
@@ -10,12 +10,12 @@ const { assert } = require('chai')
 
 const LIMIT = 10
 
-describe('AesGcmKeySequenceCipher', () => {
+describe('KeySequenceCipher', () => {
   testCipherBehaviour({
     async createCipher () {
-      let root = await AesGcmSingleKeyCipher.generate()
+      let root = await AesGcmCipher.generate()
       let verifier = await Verifier.generate()
-      return new AesGcmKeySequenceCipher(root, verifier)
+      return new KeySequenceCipher(root, verifier)
     }
   })
 
@@ -23,9 +23,9 @@ describe('AesGcmKeySequenceCipher', () => {
     let root, verifier, cipher
 
     beforeEach(async () => {
-      root = await AesGcmSingleKeyCipher.generate()
+      root = await AesGcmCipher.generate()
       verifier = await Verifier.generate()
-      cipher = new AesGcmKeySequenceCipher(root, verifier, { limit: LIMIT })
+      cipher = new KeySequenceCipher(root, verifier, { limit: LIMIT })
     })
 
     it('encrypts up to the limit with a single key', async () => {
@@ -95,7 +95,7 @@ describe('AesGcmKeySequenceCipher', () => {
       assert.equal(cipher.size(), n)
 
       let state = await cipher.serialize()
-      let copy = await AesGcmKeySequenceCipher.parse(state, root, verifier, { limit: LIMIT })
+      let copy = await KeySequenceCipher.parse(state, root, verifier, { limit: LIMIT })
 
       for (let i = a; i < b; i++) {
         encs.push(await copy.encrypt(message))
@@ -119,7 +119,7 @@ describe('AesGcmKeySequenceCipher', () => {
 
       async function clone (cipher) {
         let state = await cipher.serialize()
-        return AesGcmKeySequenceCipher.parse(state, root, verifier, { limit: LIMIT })
+        return KeySequenceCipher.parse(state, root, verifier, { limit: LIMIT })
       }
 
       beforeEach(async () => {

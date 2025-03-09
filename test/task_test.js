@@ -1,6 +1,6 @@
 'use strict'
 
-const AesGcmSingleKeyCipher = require('../lib/ciphers/aes_gcm_single_key')
+const AesGcmCipher = require('../lib/ciphers/aes_gcm')
 const Cache = require('../lib/cache')
 const Router = require('../lib/router')
 const Task = require('../lib/task')
@@ -26,7 +26,7 @@ testWithAdapters('Task', (impl) => {
 
   beforeEach(async () => {
     router = new Router({ n: 4, key: await Router.generateKey() })
-    cipher = await AesGcmSingleKeyCipher.generate()
+    cipher = await AesGcmCipher.generate()
     verifier = await Verifier.generate()
     adapter = impl.createAdapter()
     task = newTask()

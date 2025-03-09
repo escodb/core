@@ -1,7 +1,7 @@
 'use strict'
 
 const { Cell, JsonCodec } = require('../lib/cell')
-const AesGcmSingleKeyCipher = require('../lib/ciphers/aes_gcm_single_key')
+const AesGcmCipher = require('../lib/ciphers/aes_gcm')
 
 const { assert } = require('chai')
 
@@ -9,7 +9,7 @@ describe('Cell', () => {
   let cipher, cell
 
   beforeEach(async () => {
-    cipher = await AesGcmSingleKeyCipher.generate()
+    cipher = await AesGcmCipher.generate()
     cell = new Cell(cipher, JsonCodec, null)
   })
 
