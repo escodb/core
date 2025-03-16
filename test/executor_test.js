@@ -1,21 +1,23 @@
 'use strict'
 
+const AesGcmCipher = require('../lib/ciphers/aes_gcm')
 const Cache = require('../lib/cache')
-const Cipher = require('../lib/cipher')
 const Executor = require('../lib/executor')
 const Shard = require('../lib/shard')
+const Verifier = require('../lib/verifier')
 
 const { assert } = require('chai')
 const { testWithAdapters } = require('./adapters/utils')
 
 testWithAdapters('Executor', (impl) => {
-  let store, cipher, executor, cache
+  let store, cipher, verifier, executor, cache
 
   beforeEach(async () => {
     store = impl.createAdapter()
-    cipher = new Cipher({ key: await Cipher.generateKey() })
-    executor = new Executor(new Cache(store, cipher))
-    cache = new Cache(store, cipher)
+    cipher = await AesGcmCipher.generate()
+    verifier = await Verifier.generate()
+    executor = new Executor(new Cache(store, cipher, verifier))
+    cache = new Cache(store, cipher, verifier)
   })
 
   afterEach(impl.cleanup)
@@ -162,17 +164,17 @@ testWithAdapters('Executor', (impl) => {
 
   describe('with items in different shards', () => {
     beforeEach(async () => {
-      let shard = Shard.parse(null, cipher)
+      let shard = await Shard.parse(null, cipher, verifier)
       await shard.link('/', 'doc')
       await store.write('A', await shard.serialize())
 
-      shard = Shard.parse(null, cipher)
+      shard = await Shard.parse(null, cipher, verifier)
       await shard.put('/doc', () => ({ x: 1 }))
       await store.write('B', await shard.serialize())
     })
 
     function doUpdate () {
-      let exec = new Executor(new Cache(store, cipher))
+      let exec = new Executor(new Cache(store, cipher, verifier))
 
       let link = exec.add('A', [], (s) => s.link('/', 'doc'))
       let put = exec.add('B', [link.id], (s) => s.put('/doc', (doc) => ({ ...doc, y: 2 })))
@@ -182,7 +184,7 @@ testWithAdapters('Executor', (impl) => {
     }
 
     function doRemove () {
-      let exec = new Executor(new Cache(store, cipher))
+      let exec = new Executor(new Cache(store, cipher, verifier))
 
       let rm = exec.add('B', [], (s) => s.rm('/doc'))
       let unlink = exec.add('A', [rm.id], (s) => s.unlink('/', 'doc'))
@@ -192,11 +194,11 @@ testWithAdapters('Executor', (impl) => {
     }
 
     it('triggers a conflict between two clients', async () => {
-      let alice = new Executor(new Cache(store, cipher))
+      let alice = new Executor(new Cache(store, cipher, verifier))
       let op1 = alice.add('A', [], (s) => s.link('/', 'x'))
       alice.poll()
 
-      let bob = new Executor(new Cache(store, cipher))
+      let bob = new Executor(new Cache(store, cipher, verifier))
       let op2 = bob.add('A', [], (s) => s.link('/', 'y'))
       bob.poll()
 

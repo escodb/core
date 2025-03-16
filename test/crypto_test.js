@@ -1,12 +1,11 @@
 'use strict'
 
-
 const { assert } = require('chai')
 
 function testCrypto (impl) {
   describe('randomBytes()', () => {
-    it('generates random buffers', async () => {
-      let key = await impl.randomBytes(16)
+    it('generates random buffers', () => {
+      let key = impl.randomBytes(16)
       assert.instanceOf(key, Buffer)
       assert.equal(key.length, 16)
     })
@@ -30,14 +29,27 @@ function testCrypto (impl) {
       assert.equal(key.length, 64)
     })
 
-    it('computes digests', async () => {
+    it('signs a message', async () => {
       let key = Buffer.from('wtznHJpRyQ1731UMy7JZD6JVO3w/siiGb8s9wyVZSGK+U/BVR1DqqOIccCmkfsPRtHhgbbcNSr5wi6eaNWBzFQ==', 'base64')
       let data = Buffer.from('hello world', 'utf8')
-      let hash = await impl.hmacSha256.digest(key, data)
+      let sig = await impl.hmacSha256.sign(key, data)
 
       assert.equal(
-        hash.toString('base64'),
+        sig.toString('base64'),
         'yyfAwelMFCQzZ/+q/2aymE5bGH7H29urJMY3ui5Y9ig=')
+    })
+
+    it('verifies a signature', async () => {
+      let key = Buffer.from('q2pUhwnqBYm3HAwQ1BfNqXJ3oyWur4E7zCn/iq1iqrKznZwBN9G0VbgcnU6u4Q6HcharFpamwCwvXsWpzQXYVQ==', 'base64')
+      let data = Buffer.from('hello world', 'utf8')
+      let sig = await impl.hmacSha256.sign(key, data)
+
+      let verified = await impl.hmacSha256.verify(key, data, sig)
+      assert(verified)
+
+      sig = impl.randomBytes(32)
+      verified = await impl.hmacSha256.verify(key, data, sig)
+      assert(!verified)
     })
   })
 

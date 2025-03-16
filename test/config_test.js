@@ -29,6 +29,8 @@ testWithAdapters('Config', (impl) => {
 
     assert.match(config.cipher.key, /^[a-z0-9/+]+=*$/i)
 
+    assert.match(config.auth.key, /^[a-z0-9/+]+=*$/i)
+
     assert.match(config.shards.key, /^[a-z0-9/+]+=*$/i)
     assert.equal(config.shards.n, 2)
   })

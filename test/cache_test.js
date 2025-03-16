@@ -1,26 +1,28 @@
 'use strict'
 
+const AesGcmCipher = require('../lib/ciphers/aes_gcm')
 const Cache = require('../lib/cache')
-const Cipher = require('../lib/cipher')
 const Shard = require('../lib/shard')
+const Verifier = require('../lib/verifier')
 
 const { assert } = require('chai')
 const { testWithAdapters } = require('./adapters/utils')
 
 testWithAdapters('Cache', (impl) => {
-  let adapter, cipher, cache
+  let adapter, cipher, verifier, cache
 
   beforeEach(async () => {
     adapter = impl.createAdapter()
-    cipher = new Cipher({ key: await Cipher.generateKey() })
-    cache = new Cache(adapter, cipher)
+    cipher = await AesGcmCipher.generate()
+    verifier = await Verifier.generate()
+    cache = new Cache(adapter, cipher, verifier)
   })
 
   afterEach(impl.cleanup)
 
   async function readFromStore (id) {
     let { value } = await adapter.read(id)
-    return Shard.parse(value, cipher)
+    return Shard.parse(value, cipher, verifier)
   }
 
   describe('with no stored shards', () => {
@@ -42,7 +44,7 @@ testWithAdapters('Cache', (impl) => {
 
   describe('with a shard stored', () => {
     beforeEach(async () => {
-      let shard = Shard.parse(null, cipher)
+      let shard = await Shard.parse(null, cipher, verifier)
 
       await shard.link('/', 'path/')
       await shard.link('/path/', 'doc.txt')
@@ -101,7 +103,7 @@ testWithAdapters('Cache', (impl) => {
     })
 
     it('allows sequential updates from two clients', async () => {
-      let other = new Cache(adapter, cipher)
+      let other = new Cache(adapter, cipher, verifier)
 
       let copy = await other.read('x')
       await copy.put('/path/doc.txt', (doc) => ({ ...doc, q: 2 }))
@@ -121,7 +123,7 @@ testWithAdapters('Cache', (impl) => {
       beforeEach(async () => {
         await cache.read('x')
 
-        other = new Cache(adapter, cipher)
+        other = new Cache(adapter, cipher, verifier)
         let copy = await other.read('x')
         await copy.put('/path/doc.txt', (doc) => ({ ...doc, q: 2 }))
         await other.write('x')
@@ -163,6 +165,46 @@ testWithAdapters('Cache', (impl) => {
 
         let shard = await cache.read('x')
         assert.deepEqual(await shard.get('/path/doc.txt'), { p: 1 })
+      })
+
+      it('merges the shard key counter state on reload', async () => {
+        let shard = await cache.read('x')
+        let counters = shard.getCounters()
+
+        assert.equal(counters.get('1.msg'), 4n)
+
+        await shard.link('/', 'path/')
+        await shard.link('/path/', 'doc.txt')
+        await shard.put('/path/doc.txt', (doc) => ({ ...doc, r: 3 }))
+
+        await cache.write('x').catch(e => e)
+
+        assert.equal(counters.get('1.msg'), 7n)
+
+        shard = await cache.read('x')
+        counters = shard.getCounters()
+
+        assert.equal(counters.get('1.msg'), 8n)
+      })
+
+      it('does not double-count encryptions already committed', async () => {
+        let copy = await other.read('x')
+        let counters = copy.getCounters()
+
+        assert.equal(counters.get('1.msg'), 5n)
+
+        cache = new Cache(adapter, cipher, verifier)
+        let shard = await cache.read('x')
+        await shard.put('/path/doc.txt', (doc) => ({ ...doc, r: 3 }))
+        await cache.write('x')
+
+        await copy.put('/path/doc.txt', (doc) => ({ ...doc, s: 4 }))
+        await other.write('x').catch(e => e)
+
+        copy = await other.read('x')
+        counters = copy.getCounters()
+
+        assert.equal(counters.get('1.msg'), 7n)
       })
     })
   })
