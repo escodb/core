@@ -22,7 +22,7 @@ testWithAdapters('Cache', (impl) => {
 
   async function readFromStore (id) {
     let { value } = await adapter.read(id)
-    return Shard.parse(value, cipher, verifier)
+    return Shard.parse(id, value, cipher, verifier)
   }
 
   describe('with no stored shards', () => {
@@ -44,7 +44,7 @@ testWithAdapters('Cache', (impl) => {
 
   describe('with a shard stored', () => {
     beforeEach(async () => {
-      let shard = await Shard.parse(null, cipher, verifier)
+      let shard = await Shard.parse('x', null, cipher, verifier)
 
       await shard.link('/', 'path/')
       await shard.link('/path/', 'doc.txt')

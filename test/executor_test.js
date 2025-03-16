@@ -164,11 +164,11 @@ testWithAdapters('Executor', (impl) => {
 
   describe('with items in different shards', () => {
     beforeEach(async () => {
-      let shard = await Shard.parse(null, cipher, verifier)
+      let shard = await Shard.parse('A', null, cipher, verifier)
       await shard.link('/', 'doc')
       await store.write('A', await shard.serialize())
 
-      shard = await Shard.parse(null, cipher, verifier)
+      shard = await Shard.parse('B', null, cipher, verifier)
       await shard.put('/doc', () => ({ x: 1 }))
       await store.write('B', await shard.serialize())
     })

@@ -12,7 +12,7 @@ describe('Shard', () => {
   beforeEach(async () => {
     cipher = await AesGcmCipher.generate()
     verifier = await Verifier.generate()
-    shard = await Shard.parse(null, cipher, verifier)
+    shard = await Shard.parse('shard-id', null, cipher, verifier)
   })
 
   it('returns null for a non-existent directory', async () => {
@@ -115,14 +115,45 @@ describe('Shard', () => {
     assert.isNull(await shard.get('/doc.txt'))
   })
 
-  it('can be de/serialised', async () => {
-    await shard.link('/', 'doc.txt')
-    await shard.put('/doc.txt', () => ({ a: 1 }))
+  describe('serialization', () => {
+    let serial
 
-    let copy = await Shard.parse(await shard.serialize(), cipher, verifier)
+    beforeEach(async () => {
+      await shard.link('/', 'doc.txt')
+      await shard.put('/doc.txt', () => ({ a: 1 }))
 
-    assert.deepEqual(await copy.list('/'), ['doc.txt'])
-    assert.deepEqual(await copy.get('/doc.txt'), { a: 1 })
+      await shard.link('/', 'other.txt')
+      await shard.put('/other.txt', () => ({ b: 2 }))
+
+      serial = await shard.serialize()
+    })
+
+    it('can be de/serialized', async () => {
+      let copy = await Shard.parse('shard-id', serial, cipher, verifier)
+
+      assert.deepEqual(await copy.list('/'), ['doc.txt', 'other.txt'])
+      assert.deepEqual(await copy.get('/doc.txt'), { a: 1 })
+      assert.deepEqual(await copy.get('/other.txt'), { b: 2 })
+    })
+
+    it('binds items to their corresponding paths', async () => {
+      let rows = serial.split('\n')
+      assert.equal(rows.length, 5)
+
+      let [a, b] = [rows[3], rows[4]]
+      rows[3] = b
+      rows[4] = a
+      serial = rows.join('\n')
+
+      let copy = await Shard.parse('shard-id', serial, cipher, verifier)
+      let error = await copy.get('/doc.txt').catch(e => e)
+      assert.equal(error.code, 'ERR_DECRYPT')
+    })
+
+    it('binds all shard content to the shard ID', async () => {
+      let error = await Shard.parse('wrong-id', serial, cipher, verifier).catch(e => e)
+      assert.equal(error.code, 'ERR_DECRYPT')
+    })
   })
 
   describe('concurrent operations', () => {
