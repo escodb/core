@@ -154,6 +154,25 @@ describe('Shard', () => {
       let error = await Shard.parse('wrong-id', serial, cipher, verifier).catch(e => e)
       assert.equal(error.code, 'ERR_DECRYPT')
     })
+
+    it('binds keys and items to the key ID', async () => {
+      let [header, ...items] = serial.split('\n')
+
+      function incrementKeyId (item) {
+        let buf = Buffer.from(item, 'base64')
+        buf.writeUInt32BE(2, 0)
+        return buf.toString('base64')
+      }
+
+      header = JSON.parse(header)
+      header.cipher.keys = header.cipher.keys.map(incrementKeyId)
+      items = items.map(incrementKeyId)
+
+      serial = [JSON.stringify(header), ...items].join('\n')
+
+      let error = await Shard.parse('shard-id', serial, cipher, verifier).catch(e => e)
+      assert.equal(error.code, 'ERR_DECRYPT')
+    })
   })
 
   describe('concurrent operations', () => {

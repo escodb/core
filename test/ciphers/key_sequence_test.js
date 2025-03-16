@@ -15,17 +15,17 @@ describe('KeySequenceCipher', () => {
     async createCipher () {
       let root = await AesGcmCipher.generate()
       let verifier = await Verifier.generate()
-      return new KeySequenceCipher(root, verifier)
+      return new KeySequenceCipher({}, root, verifier)
     }
   })
 
   describe('key rotation', () => {
-    let root, verifier, cipher
+    let context = {}, root, verifier, cipher
 
     beforeEach(async () => {
       root = await AesGcmCipher.generate()
       verifier = await Verifier.generate()
-      cipher = new KeySequenceCipher(root, verifier, { limit: LIMIT })
+      cipher = new KeySequenceCipher(context, root, verifier, { limit: LIMIT })
     })
 
     it('encrypts up to the limit with a single key', async () => {
@@ -95,7 +95,7 @@ describe('KeySequenceCipher', () => {
       assert.equal(cipher.size(), n)
 
       let state = await cipher.serialize()
-      let copy = await KeySequenceCipher.parse(state, root, verifier, { limit: LIMIT })
+      let copy = await KeySequenceCipher.parse(state, context, root, verifier, { limit: LIMIT })
 
       for (let i = a; i < b; i++) {
         encs.push(await copy.encrypt(message))
@@ -119,7 +119,7 @@ describe('KeySequenceCipher', () => {
 
       async function clone (cipher) {
         let state = await cipher.serialize()
-        return KeySequenceCipher.parse(state, root, verifier, { limit: LIMIT })
+        return KeySequenceCipher.parse(state, context, root, verifier, { limit: LIMIT })
       }
 
       beforeEach(async () => {
