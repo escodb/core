@@ -10,7 +10,7 @@ describe('Cell', () => {
 
   beforeEach(async () => {
     cipher = await AesGcmCipher.generate()
-    cell = new Cell(cipher, JsonCodec, null)
+    cell = new Cell(cipher, JsonCodec)
   })
 
   it('returns nothing when empty', async () => {
@@ -51,7 +51,7 @@ describe('Cell', () => {
     cell.set({ secret: 'machine' })
     let buf1 = await cell.serialize()
 
-    let cell2 = new Cell(cipher, JsonCodec, null)
+    let cell2 = new Cell(cipher, JsonCodec)
     cell2.set({ secret: 'machine' })
     let buf2 = await cell2.serialize()
 
@@ -62,7 +62,7 @@ describe('Cell', () => {
     cell.set({ ok: 'cool' })
     let encrypted = await cell.serialize()
 
-    let cell2 = new Cell(cipher, JsonCodec, null, encrypted)
+    let cell2 = new Cell(cipher, JsonCodec, { data: encrypted })
 
     let value = await cell2.get()
     assert.deepEqual(value, { ok: 'cool' })
@@ -72,7 +72,7 @@ describe('Cell', () => {
     cell.set({ hidden: 'track' })
     let buf1 = await cell.serialize()
 
-    let copy = new Cell(cipher, JsonCodec, null, buf1)
+    let copy = new Cell(cipher, JsonCodec, { data: buf1 })
     let buf2 = await copy.serialize()
 
     assert.equal(buf1, buf2)
@@ -82,7 +82,7 @@ describe('Cell', () => {
     cell.set({ hidden: 'track' })
     let buf1 = await cell.serialize()
 
-    let copy = new Cell(cipher, JsonCodec, null, buf1)
+    let copy = new Cell(cipher, JsonCodec, { data: buf1 })
     copy.set({ different: 'data' })
     let buf2 = await copy.serialize()
 
@@ -110,7 +110,7 @@ describe('Cell', () => {
     cell.set({ ok: 'cool' })
     let encrypted = await cell.serialize()
 
-    let cell2 = new Cell(cipher, JsonCodec, null, encrypted)
+    let cell2 = new Cell(cipher, JsonCodec, { data: encrypted })
 
     let val1 = await cell2.get()
     let val2 = await cell2.get()
@@ -120,7 +120,7 @@ describe('Cell', () => {
 
   describe('output format', () => {
     beforeEach(() => {
-      cell = new Cell(cipher, JsonCodec, 'hex')
+      cell = new Cell(cipher, JsonCodec, { format: 'hex' })
     })
 
     it('serialises to the requested format', async () => {
@@ -134,7 +134,7 @@ describe('Cell', () => {
       cell.set({ some: 'value' })
 
       let buf = await cell.serialize()
-      let copy = new Cell(cipher, JsonCodec, 'hex', buf)
+      let copy = new Cell(cipher, JsonCodec, { format: 'hex', data: buf })
 
       let value = await copy.get()
       assert.deepEqual(value, { some: 'value' })
