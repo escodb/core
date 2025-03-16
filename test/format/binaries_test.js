@@ -1,7 +1,7 @@
 'use strict'
 
 const { assert } = require('chai')
-const binaries = require('../lib/binaries')
+const binaries = require('../../lib/format/binaries')
 
 describe('binaries', () => {
   function assertEncode (pattern, values, bytes) {
