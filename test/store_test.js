@@ -87,4 +87,55 @@ testWithAdapters('Store', (impl) => {
       assert.equal(error.code, 'ERR_CONFIG')
     })
   })
+
+  describe('cryptography', () => {
+    const AesGcmCipher = require('../lib/ciphers/aes_gcm')
+    const binaries = require('../lib/format/binaries')
+    const { pbkdf2 } = require('../lib/crypto')
+
+    beforeEach(async () => {
+      store = await Store.create(adapter, { key: createKey, shards: { n: 1 } })
+      await store.update('/doc', () => ({ secret: 'value' }))
+    })
+
+    it('uses a chain of keys to encrypt items', async () => {
+      let { value: config } = await adapter.read('config')
+      let { value: shard } = await adapter.read('shard-0000-ffff')
+
+      let [header, index, ...items] = shard.split('\n')
+      config = JSON.parse(config)
+      header = JSON.parse(header)
+
+      // The user key is derived from the password using PBKDF2
+      let salt = Buffer.from(config.password.salt, 'base64')
+      let userKey = await pbkdf2.digest(password, salt, config.password.iterations, 256)
+
+      // The root key is encrypted using the user key
+      let rootKey = Buffer.from(config.cipher.key, 'base64')
+      let ctx = { shard: 'config', scope: 'keys.cipher' }
+      rootKey = await new AesGcmCipher({ key: userKey }).decrypt(rootKey, ctx)
+
+      // The shard key is stored in the shard header along with its seq
+      let keyBuf = Buffer.from(header.cipher.keys[0], 'base64')
+      let [keySeq, shardKey] = binaries.load(['u32', 'bytes'], keyBuf)
+
+      // The shard key is encrypted using the root key, and bound to its shard
+      // and key seq
+      ctx = { shard: 'shard-0000-ffff', scope: 'keys', key: keySeq }
+      shardKey = await new AesGcmCipher({ key: rootKey }).decrypt(shardKey, ctx)
+      shardKey = binaries.load(['u16', 'bytes'], shardKey)[1]
+
+      // The item is stored with the seq of the shard key
+      let itemBuf = Buffer.from(items[items.length - 1], 'base64')
+      let [itemSeq, item] = binaries.load(['u32', 'bytes'], itemBuf)
+
+      // The item is encrypted using the shard key, and bound to its shard, key
+      // seq, and item path
+      ctx = { shard: 'shard-0000-ffff', scope: 'items', key: itemSeq, path: '/doc' }
+      item = await new AesGcmCipher({ key: shardKey }).decrypt(item, ctx)
+
+      assert.equal(itemSeq, keySeq)
+      assert.equal(item, '{"secret":"value"}')
+    })
+  })
 })
