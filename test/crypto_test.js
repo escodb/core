@@ -78,6 +78,19 @@ function testCrypto (impl) {
         'm3YH1wwyxhqJpslNHenpylaa4lxDPcJhvqRWjVB4EZGPtUgYJCES5ASaXki+06gXyZ5FCKieWLnP/lg=')
     })
 
+    it('encrypts a message with AAD', async () => {
+      let key = Buffer.from('9F7WmH4NtItv92UZ3vOASoqYz6bVM23H1WmRvjBJJIk=', 'base64')
+      let iv = Buffer.from('ZPzfK10c0+J/M5Y+', 'base64')
+      let msg = Buffer.from('the big secret', 'utf8')
+      let aad = Buffer.from('the binding context', 'utf8')
+
+      let data = await impl.aes256gcm.encrypt(key, iv, msg, aad)
+
+      assert.equal(
+        data.toString('base64'),
+        'aabpJswlzmTAcrOG2vClHNS5UwuZ+XI/lRXfDn7N')
+    })
+
     describe('decrypt()', () => {
       let key = Buffer.from('hSZO6x/ffuPhW1aNmeSUB5vBV/ocTDtlbGeODN26Ovw=', 'base64')
       let iv = Buffer.from('H+5XRhyLPi/+j+8M', 'base64')
@@ -99,6 +112,14 @@ function testCrypto (impl) {
         assert.equal(data.toString('utf8'), 'very secret information')
       })
 
+      it('decrypts a message with AAD', async () => {
+        let msg = Buffer.from('6Rwa/pasSMFtFDQNkc0C3i/60yl6pMK9RNxBaS7B9aaPOm9BIpsL05Bs8vESD89cMg==', 'base64')
+        let aad = Buffer.from("you'll never make a dime")
+
+        let data = await impl.aes256gcm.decrypt(key, iv, msg, aad)
+        assert.equal(data.toString('utf8'), "I told them, don't do it that way")
+      })
+
       it('fails to decrypt a modified IV', async () => {
         let msg = Buffer.from('Xlkc6Nq7DdZ3FC0B2McL33rjkjl868X1oxPforQphnInQKL9irlz', 'base64')
         await assertRejects(() => impl.aes256gcm.decrypt(key, iv, msg))
@@ -111,6 +132,11 @@ function testCrypto (impl) {
 
       it('fails to decrypt a modified auth tag', async () => {
         let msg = Buffer.from('1lkc6Nq7DdZ3FC0B2McL33rjkjl868X1oxPforQphnInQKL9irlX', 'base64')
+        await assertRejects(() => impl.aes256gcm.decrypt(key, iv, msg))
+      })
+
+      it('fails to decrypt with the correct AAD', async () => {
+        let msg = Buffer.from('6Rwa/pasSMFtFDQNkc0C3i/60yl6pMK9RNxBaS7B9aaPOm9BIpsL05Bs8vESD89cMg==', 'base64')
         await assertRejects(() => impl.aes256gcm.decrypt(key, iv, msg))
       })
     })

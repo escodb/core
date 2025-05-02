@@ -118,6 +118,83 @@ describe('Cell', () => {
     assert(val1 === val2)
   })
 
+  describe('context binding', () => {
+    beforeEach(() => {
+      cell = new Cell(cipher, JsonCodec, { context: { n: 42 } })
+    })
+
+    it('returns nothing when empty', async () => {
+      let value = await cell.get()
+      assert.isNull(value)
+    })
+
+    it('returns a value that has been placed inside it', async () => {
+      cell.set({ hello: 'world' })
+      let value = await cell.get()
+      assert.deepEqual(value, { hello: 'world' })
+    })
+
+    it('returns an encrypted value', async () => {
+      cell.set({ secret: 'machine' })
+      let buf = await cell.serialize()
+      assert.instanceOf(buf, Buffer)
+    })
+
+    it('decrypts a value with the right context', async () => {
+      cell.set({ secret: 'machine' })
+      let buf = await cell.serialize()
+
+      cell = new Cell(cipher, JsonCodec, { context: { n: 42 }, data: buf })
+
+      let value = await cell.get()
+      assert.deepEqual(value, { secret: 'machine' })
+    })
+
+    it('fails to decrypt without the right context', async () => {
+      cell.set({ secret: 'machine' })
+      let buf = await cell.serialize()
+
+      cell = new Cell(cipher, JsonCodec, { context: { n: 43 }, data: buf })
+
+      let error = await cell.get().catch(e => e)
+      assert.equal(error.code, 'ERR_DECRYPT')
+    })
+
+    it('fails to decrypt with additional context', async () => {
+      cell.set({ secret: 'machine' })
+      let buf = await cell.serialize()
+
+      cell = new Cell(cipher, JsonCodec, { context: { n: 42, extra: 1 }, data: buf })
+
+      let error = await cell.get().catch(e => e)
+      assert.equal(error.code, 'ERR_DECRYPT')
+    })
+
+    it('fails to decrypt without any context', async () => {
+      cell.set({ secret: 'machine' })
+      let buf = await cell.serialize()
+
+      cell = new Cell(cipher, JsonCodec, { data: buf })
+
+      let error = await cell.get().catch(e => e)
+      assert.equal(error.code, 'ERR_DECRYPT')
+    })
+
+    it('ignores the order of context fields', async () => {
+      cell = new Cell(cipher, JsonCodec, { context: { a: 1, b: 2 } })
+      cell.set({ outer: 'wilds' })
+      let buf = await cell.serialize()
+
+      let cell1 = new Cell(cipher, JsonCodec, { context: { a: 1, b: 2 }, data: buf })
+      let val1 = await cell1.get()
+      assert.deepEqual(val1, { outer: 'wilds' })
+
+      let cell2 = new Cell(cipher, JsonCodec, { context: { b: 2, a: 1 }, data: buf })
+      let val2 = await cell2.get()
+      assert.deepEqual(val2, { outer: 'wilds' })
+    })
+  })
+
   describe('output format', () => {
     beforeEach(() => {
       cell = new Cell(cipher, JsonCodec, { format: 'hex' })
