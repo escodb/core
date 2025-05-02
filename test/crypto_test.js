@@ -53,6 +53,57 @@ function testCrypto (impl) {
     })
   })
 
+  describe('PBKDF2', () => {
+    it('generates a salt', async () => {
+      let salt = await impl.pbkdf2.generateSalt()
+      assert.instanceOf(salt, Buffer)
+      assert.equal(salt.length, 32)
+    })
+
+    it('generates a key', async () => {
+      let salt = Buffer.from('f6UORrixFECGBWvhqrkmSg==', 'base64')
+      let key = await impl.pbkdf2.digest('open sesame', salt, 100, 128)
+
+      assert.equal(key.toString('base64'), 'UnAUC8QzmfO/VQVA7x747Q==')
+    })
+
+    it('generates a longer key', async () => {
+      let salt = Buffer.from('f6UORrixFECGBWvhqrkmSg==', 'base64')
+      let key = await impl.pbkdf2.digest('open sesame', salt, 100, 256)
+
+      assert.equal(
+        key.toString('base64'),
+        'UnAUC8QzmfO/VQVA7x747Rtd6r5NJMqlRADK0an+wYo=')
+    })
+
+    it('uses more iterations', async () => {
+      let salt = Buffer.from('f6UORrixFECGBWvhqrkmSg==', 'base64')
+      let key = await impl.pbkdf2.digest('open sesame', salt, 200, 256)
+
+      assert.equal(
+        key.toString('base64'),
+        'JnM5x6YU0JfGuLE8LIpctscrvYRwv78etXN4oxNvXKo=')
+    })
+
+    it('returns the same result for NFC input', async () => {
+      let pw = Buffer.from('6d61c3b1c3a16ec7a3', 'hex').toString('utf8')
+      let salt = Buffer.from('GH+3OardBQexNBX4I0BJnw==', 'base64')
+
+      let key = await impl.pbkdf2.digest(pw, salt, 100, 128)
+
+      assert.equal(key.toString('base64'), 'VSlKlFXsn8KkDv0XhSdRwA==')
+    })
+
+    it('returns the same result for NFD input', async () => {
+      let pw = Buffer.from('6d616ecc8361cc816ec3a6cc84', 'hex').toString('utf8')
+      let salt = Buffer.from('GH+3OardBQexNBX4I0BJnw==', 'base64')
+
+      let key = await impl.pbkdf2.digest(pw, salt, 100, 128)
+
+      assert.equal(key.toString('base64'), 'VSlKlFXsn8KkDv0XhSdRwA==')
+    })
+  })
+
   describe('AES-256-GCM', () => {
     it('generates a key', async () => {
       let key = await impl.aes256gcm.generateKey()
@@ -139,57 +190,6 @@ function testCrypto (impl) {
         let msg = Buffer.from('6Rwa/pasSMFtFDQNkc0C3i/60yl6pMK9RNxBaS7B9aaPOm9BIpsL05Bs8vESD89cMg==', 'base64')
         await assertRejects(() => impl.aes256gcm.decrypt(key, iv, msg))
       })
-    })
-  })
-
-  describe('PBKDF2', () => {
-    it('generates a salt', async () => {
-      let salt = await impl.pbkdf2.generateSalt()
-      assert.instanceOf(salt, Buffer)
-      assert.equal(salt.length, 32)
-    })
-
-    it('generates a key', async () => {
-      let salt = Buffer.from('f6UORrixFECGBWvhqrkmSg==', 'base64')
-      let key = await impl.pbkdf2.digest('open sesame', salt, 100, 128)
-
-      assert.equal(key.toString('base64'), 'UnAUC8QzmfO/VQVA7x747Q==')
-    })
-
-    it('generates a longer key', async () => {
-      let salt = Buffer.from('f6UORrixFECGBWvhqrkmSg==', 'base64')
-      let key = await impl.pbkdf2.digest('open sesame', salt, 100, 256)
-
-      assert.equal(
-        key.toString('base64'),
-        'UnAUC8QzmfO/VQVA7x747Rtd6r5NJMqlRADK0an+wYo=')
-    })
-
-    it('uses more iterations', async () => {
-      let salt = Buffer.from('f6UORrixFECGBWvhqrkmSg==', 'base64')
-      let key = await impl.pbkdf2.digest('open sesame', salt, 200, 256)
-
-      assert.equal(
-        key.toString('base64'),
-        'JnM5x6YU0JfGuLE8LIpctscrvYRwv78etXN4oxNvXKo=')
-    })
-
-    it('returns the same result for NFC input', async () => {
-      let pw = Buffer.from('6d61c3b1c3a16ec7a3', 'hex').toString('utf8')
-      let salt = Buffer.from('GH+3OardBQexNBX4I0BJnw==', 'base64')
-
-      let key = await impl.pbkdf2.digest(pw, salt, 100, 128)
-
-      assert.equal(key.toString('base64'), 'VSlKlFXsn8KkDv0XhSdRwA==')
-    })
-
-    it('returns the same result for NFD input', async () => {
-      let pw = Buffer.from('6d616ecc8361cc816ec3a6cc84', 'hex').toString('utf8')
-      let salt = Buffer.from('GH+3OardBQexNBX4I0BJnw==', 'base64')
-
-      let key = await impl.pbkdf2.digest(pw, salt, 100, 128)
-
-      assert.equal(key.toString('base64'), 'VSlKlFXsn8KkDv0XhSdRwA==')
     })
   })
 }
