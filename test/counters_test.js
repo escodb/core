@@ -1,16 +1,13 @@
 'use strict'
 
 const Counters = require('../lib/counters')
-const Verifier = require('../lib/verifier')
-
 const { assert } = require('chai')
 
 describe('Counters', () => {
-  let verifier, counters
+  let counters
 
-  beforeEach(async () => {
-    verifier = await Verifier.generate()
-    counters = new Counters(verifier)
+  beforeEach(() => {
+    counters = new Counters()
   })
 
   it('returns zero for an unknown ID', () => {
@@ -53,9 +50,9 @@ describe('Counters', () => {
       assert.equal(counters.get('x'), 3n)
     })
 
-    it('can be de/serialised', async () => {
-      let state = await counters.serialize()
-      let copy = await Counters.parse(state, ['x', 'y'], verifier)
+    it('can be de/serialised', () => {
+      let state = counters.serialize()
+      let copy = Counters.parse(state, ['x', 'y'])
 
       assert.equal(copy.get('y'), 5n)
       assert.equal(copy.get('x'), 3n)
@@ -64,12 +61,12 @@ describe('Counters', () => {
     describe('with two copies of the same starting state', () => {
       let alice, bob
 
-      beforeEach(async () => {
-        let state = await counters.serialize()
+      beforeEach(() => {
+        let state = counters.serialize()
         let ids = ['x', 'y']
 
-        alice = await Counters.parse(state, ids, verifier)
-        bob = await Counters.parse(state, ids, verifier)
+        alice = Counters.parse(state, ids)
+        bob = Counters.parse(state, ids)
       })
 
       it('can merge uncommitted updates', () => {

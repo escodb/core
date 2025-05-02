@@ -4,6 +4,7 @@ const AesGcmCipher = require('../../lib/ciphers/aes_gcm')
 const KeySequenceCipher = require('../../lib/ciphers/key_sequence')
 const crypto = require('../../lib/crypto')
 const Verifier = require('../../lib/verifier')
+const binaries = require('../../lib/format/binaries')
 
 const testCipherBehaviour = require('./behaviour')
 const { assert } = require('chai')
@@ -17,6 +18,110 @@ describe('KeySequenceCipher', () => {
       let verifier = await Verifier.generate()
       return new KeySequenceCipher({}, root, verifier)
     }
+  })
+
+  describe('authentication', () => {
+    let context = { a: 'foo', b: 'bar' }, root, verifier, cipher
+
+    beforeEach(async () => {
+      root = await AesGcmCipher.generate()
+      verifier = await Verifier.generate()
+      cipher = new KeySequenceCipher(context, root, verifier, { limit: LIMIT })
+
+      for (let i = 0; i < 1.5 * LIMIT; i++) {
+        await cipher.encrypt(Buffer.from('a message', 'utf8'))
+      }
+    })
+
+    it('signs the key IDs and counter state', async () => {
+      let { mac } = await cipher.serialize()
+
+      let keys = Buffer.from([
+        0, 0, 0, 1,
+        0, 0, 0, 2
+      ])
+
+      let state = Buffer.from([
+        0, 0, 0, 0, 0, 0, 0, 10,
+        0, 0, 0, 0, 0, 0, 0, 20,
+        0, 0, 0, 0, 0, 0, 0, 5,
+        0, 0, 0, 0, 0, 0, 0, 10
+      ])
+
+      let signature = await verifier.sign({ keys, state, a: 'foo', b: 'bar' })
+
+      assert.equal(mac, signature)
+    })
+
+    it('parses a state with a valid context', async () => {
+      let state = await cipher.serialize()
+      let parsed = await KeySequenceCipher.parse(state, context, root, verifier)
+      assert.instanceOf(parsed, KeySequenceCipher)
+    })
+
+    it('rejects a state with a different context', async () => {
+      let state = await cipher.serialize()
+      let error = await KeySequenceCipher.parse(state, { diff: 'context' }, root, verifier).catch(e => e)
+      assert.equal(error.code, 'ERR_AUTH_FAILED')
+    })
+
+    it('rejects a state with an altered key ID', async () => {
+      let state = await cipher.serialize()
+      let key = Buffer.from(state.keys[0], 'base64')
+      let [seq, cell] = binaries.load(['u32', 'bytes'], key)
+
+      seq += 30
+
+      key = binaries.dump(['u32', 'bytes'], [seq, cell])
+      state.keys[0] = key.toString('base64')
+
+      let error = await KeySequenceCipher.parse(state, context, root, verifier).catch(e => e)
+      assert.equal(error.code, 'ERR_AUTH_FAILED')
+    })
+
+    it('rejects a state with swapped keys', async () => {
+      let state = await cipher.serialize()
+
+      let [a, b, ...rest] = state.keys
+      state.keys = [b, a, ...rest]
+
+      let error = await KeySequenceCipher.parse(state, context, root, verifier).catch(e => e)
+      assert.equal(error.code, 'ERR_AUTH_FAILED')
+    })
+
+    async function editCounters (cipher, fn) {
+      let state = await cipher.serialize()
+
+      let counters = Buffer.from(state.state, 'base64')
+      counters = binaries.loadArray('u64', counters)
+
+      counters = await fn(counters)
+
+      counters = binaries.dumpArray('u64', counters)
+      counters = counters.toString('base64')
+
+      return { ...state, state: counters }
+    }
+
+    it('rejects a state with an altered counter', async () => {
+      let state = await editCounters(cipher, (counters) => {
+        counters[0] += 1n
+        return counters
+      })
+
+      let error = await KeySequenceCipher.parse(state, context, root, verifier).catch(e => e)
+      assert.equal(error.code, 'ERR_AUTH_FAILED')
+    })
+
+    it('rejects a state with swapped counters', async () => {
+      let state = await editCounters(cipher, (counters) => {
+        let [a, b, ...rest] = counters
+        return [b, a, ...rest]
+      })
+
+      let error = await KeySequenceCipher.parse(state, context, root, verifier).catch(e => e)
+      assert.equal(error.code, 'ERR_AUTH_FAILED')
+    })
   })
 
   describe('key rotation', () => {

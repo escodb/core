@@ -14,26 +14,47 @@ describe('Verifier', () => {
 
   it('signs a payload', async () => {
     let payload = Buffer.from('trusted data', 'utf8')
-    let signed = await verifier.sign(payload)
+    let signed = await verifier.sign({ payload })
 
     assert.typeOf(signed, 'string')
-    assert.match(signed, /^[a-z0-9/+]+=*\.[a-z0-9/+]+=*$/i)
+    assert.match(signed, /^[a-z0-9/+]+=*$/i)
   })
 
-  it('parses a signed payload', async () => {
+  it('verifies a signed payload', async () => {
     let payload = Buffer.from('trusted data', 'utf8')
-    let signed = await verifier.sign(payload)
-    let parsed = await verifier.parse(signed)
+    let signed = await verifier.sign({ payload })
 
-    assert.equal(parsed.toString('utf8'), 'trusted data')
+    await verifier.verify({ payload }, signed)
   })
 
   it('rejects a payload with a bad signature', async () => {
     let payload = Buffer.from('trusted data', 'utf8')
     let signature = randomBytes(32)
-    let invalid = [payload, signature].map((buf) => buf.toString('base64')).join('.')
 
-    let error = await verifier.parse(invalid).catch(e => e)
+    let error = await verifier.verify({ payload }, signature).catch(e => e)
+    assert.equal(error.code, 'ERR_AUTH_FAILED')
+  })
+
+  it('signs a payload with a context', async () => {
+    let payload = Buffer.from('trusted data', 'utf8')
+    let signed = await verifier.sign({ payload, foo: 'bar' })
+
+    assert.typeOf(signed, 'string')
+    assert.match(signed, /^[a-z0-9/+]+=*$/i)
+  })
+
+  it('verifies a signed payload with context', async () => {
+    let payload = Buffer.from('trusted data', 'utf8')
+    let signed = await verifier.sign({ payload, foo: 'bar' })
+
+    await verifier.verify({ payload, foo: 'bar' }, signed)
+  })
+
+  it('rejects a payload the wrong context', async () => {
+    let payload = Buffer.from('trusted data', 'utf8')
+    let signed = await verifier.sign({ payload, foo: 'bar' })
+
+    let error = await verifier.verify({ payload, bar: 'foo' }, signed).catch(e => e)
     assert.equal(error.code, 'ERR_AUTH_FAILED')
   })
 })

@@ -152,7 +152,7 @@ describe('Shard', () => {
 
     it('binds all shard content to the shard ID', async () => {
       let error = await Shard.parse('wrong-id', serial, cipher, verifier).catch(e => e)
-      assert.equal(error.code, 'ERR_DECRYPT')
+      assert.equal(error.code, 'ERR_AUTH_FAILED')
     })
 
     it('binds keys and items to the key ID', async () => {
@@ -171,7 +171,7 @@ describe('Shard', () => {
       serial = [JSON.stringify(header), ...items].join('\n')
 
       let error = await Shard.parse('shard-id', serial, cipher, verifier).catch(e => e)
-      assert.equal(error.code, 'ERR_DECRYPT')
+      assert.equal(error.code, 'ERR_AUTH_FAILED')
     })
   })
 
