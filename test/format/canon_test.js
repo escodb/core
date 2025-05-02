@@ -18,6 +18,13 @@ describe('canon', () => {
       '000000000000000200000000000000016e00000000000000023432')
   })
 
+  it('encodes buffers', () => {
+    let buf = canon.encode({ b: Buffer.from([1, 2, 3, 4]) })
+    assert.equal(
+      buf.toString('hex'),
+      '0000000000000002000000000000000162000000000000000401020304')
+  })
+
   it('encodes multiple key-value pairs', () => {
     let buf = canon.encode({ hello: 'world', n: 42 })
     assert.equal(

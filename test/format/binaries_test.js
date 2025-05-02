@@ -11,6 +11,13 @@ describe('binaries', () => {
     assert.deepEqual(parsed, values)
   }
 
+  function assertEncodeArray (type, values, bytes) {
+    let buffer = binaries.dumpArray(type, values)
+    assert.deepEqual(buffer, Buffer.from(bytes, 'hex'))
+    let parsed = binaries.loadArray(type, buffer)
+    assert.deepEqual(parsed, values)
+  }
+
   it('encodes a byte', () => {
     assertEncode(['u8'], [127], '7f')
   })
@@ -44,6 +51,38 @@ describe('binaries', () => {
       ['u32', 'u16', 'bytes'],
       [3033088928, 22898, Buffer.from('beefcafe', 'hex')],
       'b4c943a05972beefcafe'
+    )
+  })
+
+  it('encodes an array of bytes', () => {
+    assertEncodeArray(
+      'u8',
+      [177, 9, 95, 165],
+      'b1095fa5'
+    )
+  })
+
+  it('encodes an array of u16', () => {
+    assertEncodeArray(
+      'u16',
+      [20969, 1603, 14443, 11647],
+      '51e90643386b2d7f'
+    )
+  })
+
+  it('encodes an array of u32', () => {
+    assertEncodeArray(
+      'u32',
+      [197488786, 4279211303, 1113928800, 3175803103],
+      '0bc57092ff0f952742653460bd4ae8df'
+    )
+  })
+
+  it('encodes an array of u64', () => {
+    assertEncodeArray(
+      'u64',
+      [9821241840207857318n, 15662873413103057859n, 18095375158096578588n, 1657841687468294905n],
+      '884c0f6b22cb06a6d95db4623deafbc3fb1fafd537c6481c1701d63b2b61c2f9'
     )
   })
 })
