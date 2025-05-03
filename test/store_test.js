@@ -90,4 +90,30 @@ testWithAdapters('Store', (impl) => {
       assert.equal(error.code, 'ERR_CONFIG')
     })
   })
+
+  describe('openOrCreate()', () => {
+    let a, b
+
+    function newStore () {
+      return new Store(adapter, openOpts).openOrCreate(createOpts)
+    }
+
+    beforeEach(async () => {
+      let clients = await Promise.all([newStore(), newStore()])
+      a = clients[0]
+      b = clients[1]
+    })
+
+    it('lets either client create the store', async () => {
+      await a.update('/doc', () => ({ a: 1 }))
+      await b.update('/doc', (doc) => ({ ...doc, b: 2 }))
+      await a.update('/doc', (doc) => ({ ...doc, c: 3 }))
+
+      let aDoc = await a.get('/doc')
+      assert.deepEqual(aDoc, { a: 1, b: 2, c: 3 })
+
+      let bDoc = await b.get('/doc')
+      assert.deepEqual(bDoc, { a: 1, b: 2, c: 3 })
+    })
+  })
 })
