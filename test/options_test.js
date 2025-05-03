@@ -84,16 +84,14 @@ describe('OpenOptions', () => {
 
 describe('CreateOptions', () => {
   it('sets default options', () => {
-    let options = CreateOptions.parse({ key: { password: 'hi' } })
+    let options = CreateOptions.parse({})
 
-    assert.equal(options.key.password, 'hi')
     assert.equal(options.password.iterations, 600000)
     assert.equal(options.shards.n, 2)
   })
 
   it('sets optional parameters', () => {
     let options = CreateOptions.parse({
-      key: { password: 'hi' },
       password: { iterations: 4200 },
       shards: { n: 5 }
     })

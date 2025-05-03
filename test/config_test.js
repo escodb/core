@@ -8,7 +8,8 @@ const { testWithAdapters } = require('./adapters/utils')
 testWithAdapters('Config', (impl) => {
   let adapter, config
   let password = 'hello'
-  let createOpts = { key: { password }, password: { iterations: 10 } }
+  let openOpts = { key: { password } }
+  let createOpts = { password: { iterations: 10 } }
 
   beforeEach(() => {
     adapter = impl.createAdapter()
@@ -17,7 +18,7 @@ testWithAdapters('Config', (impl) => {
   afterEach(impl.cleanup)
 
   it('writes initial config to the storage', async () => {
-    await Config.create(adapter, createOpts)
+    await Config.create(adapter, openOpts, createOpts)
 
     let { value } = await adapter.read('config')
     let config = JSON.parse(value)
@@ -36,7 +37,7 @@ testWithAdapters('Config', (impl) => {
   })
 
   it('sets the password iterations', async () => {
-    await Config.create(adapter, { key: { password }, password: { iterations: 50 } })
+    await Config.create(adapter, openOpts, { password: { iterations: 50 } })
 
     let { value } = await adapter.read('config')
     let config = JSON.parse(value)
@@ -45,7 +46,7 @@ testWithAdapters('Config', (impl) => {
   })
 
   it('sets the number of shards', async () => {
-    await Config.create(adapter, { ...createOpts, shards: { n: 3 } })
+    await Config.create(adapter, openOpts, { ...createOpts, shards: { n: 3 } })
 
     let { value } = await adapter.read('config')
     let config = JSON.parse(value)
@@ -55,35 +56,16 @@ testWithAdapters('Config', (impl) => {
 
   it('sets the number of shards to zero', async () => {
     let params = { ...createOpts, shards: { n: 0 } }
-    let error = await Config.create(adapter, params).catch(e => e)
+    let error = await Config.create(adapter, openOpts, params).catch(e => e)
 
     assert.equal(error.code, 'ERR_CONFIG')
   })
-
-  async function open (adapter, options) {
-    try {
-      let openOpts = { key: { password: options.key.password } }
-      return await Config.open(adapter, openOpts)
-    } catch (error) {
-      if (error.code !== 'ERR_MISSING') throw error
-
-      try {
-        return await Config.create(adapter, options)
-      } catch (error) {
-        if (error.code === 'ERR_EXISTS') {
-          return open(adapter, options)
-        } else {
-          throw error
-        }
-      }
-    }
-  }
 
   it('makes concurrently created clients agree on the config', async () => {
     let configs = []
 
     for (let i = 0; i < 10; i++) {
-      configs.push(open(adapter, createOpts))
+      configs.push(Config.openOrCreate(adapter, openOpts, createOpts))
     }
     configs = await Promise.all(configs)
 
