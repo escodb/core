@@ -14,11 +14,11 @@ const { assert } = require('chai')
 describe('encryption', () => {
   let store, adapter
   let password = 'swansong'
+  let createOpts = { password: { iterations: 10 }, shards: { n: 1 } }
 
   beforeEach(async () => {
     adapter = new MemoryAdapter()
-    let key = { password, iterations: 10 }
-    store = await Store.create(adapter, { key, shards: { n: 1 } })
+    store = await new Store(adapter, { key: { password } }).create(createOpts)
     await store.update('/doc', () => ({ secret: 'value' }))
   })
 

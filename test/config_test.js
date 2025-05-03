@@ -8,7 +8,7 @@ const { testWithAdapters } = require('./adapters/utils')
 testWithAdapters('Config', (impl) => {
   let adapter, config
   let password = 'hello'
-  let createKey = { password, iterations: 10 }
+  let createOpts = { key: { password }, password: { iterations: 10 } }
 
   beforeEach(() => {
     adapter = impl.createAdapter()
@@ -17,7 +17,7 @@ testWithAdapters('Config', (impl) => {
   afterEach(impl.cleanup)
 
   it('writes initial config to the storage', async () => {
-    await Config.create(adapter, { key: createKey })
+    await Config.create(adapter, createOpts)
 
     let { value } = await adapter.read('config')
     let config = JSON.parse(value)
@@ -35,8 +35,8 @@ testWithAdapters('Config', (impl) => {
     assert.equal(config.shards.n, 2)
   })
 
-  it('sets the key iterations', async () => {
-    await Config.create(adapter, { key: { password, iterations: 50 } })
+  it('sets the password iterations', async () => {
+    await Config.create(adapter, { key: { password }, password: { iterations: 50 } })
 
     let { value } = await adapter.read('config')
     let config = JSON.parse(value)
@@ -45,7 +45,7 @@ testWithAdapters('Config', (impl) => {
   })
 
   it('sets the number of shards', async () => {
-    await Config.create(adapter, { key: createKey, shards: { n: 3 } })
+    await Config.create(adapter, { ...createOpts, shards: { n: 3 } })
 
     let { value } = await adapter.read('config')
     let config = JSON.parse(value)
@@ -54,7 +54,7 @@ testWithAdapters('Config', (impl) => {
   })
 
   it('sets the number of shards to zero', async () => {
-    let params = { key: createKey, shards: { n: 0 } }
+    let params = { ...createOpts, shards: { n: 0 } }
     let error = await Config.create(adapter, params).catch(e => e)
 
     assert.equal(error.code, 'ERR_CONFIG')
@@ -83,7 +83,7 @@ testWithAdapters('Config', (impl) => {
     let configs = []
 
     for (let i = 0; i < 10; i++) {
-      configs.push(open(adapter, { key: createKey }))
+      configs.push(open(adapter, createOpts))
     }
     configs = await Promise.all(configs)
 

@@ -10,6 +10,9 @@ testWithAdapters('Store', (impl) => {
   let password = 'the password'
   let createKey = { password, iterations: 10 }
 
+  let openOpts = { key: { password } }
+  let createOpts = { password: { iterations: 10 } }
+
   beforeEach(async () => {
     adapter = impl.createAdapter()
   })
@@ -18,23 +21,23 @@ testWithAdapters('Store', (impl) => {
 
   describe('with no existing data store', () => {
     it('fails to open the store', async () => {
-      let error = await Store.open(adapter, { key: { password } }).catch(e => e)
+      let error = await new Store(adapter, openOpts).open().catch(e => e)
       assert.equal(error.code, 'ERR_MISSING')
     })
 
     it('fails to create a store with no password', async () => {
-      let error = await Store.create(adapter).catch(e => e)
+      let error = await new Store(adapter).create().catch(e => e)
       assert.equal(error.code, 'ERR_CONFIG')
 
-      error = await Store.create(adapter, { key: {} }).catch(e => e)
+      error = await new Store(adapter, { key: {} }).create().catch(e => e)
       assert.equal(error.code, 'ERR_CONFIG')
     })
 
-    it('opens the store and lets items by written to it', async () => {
-      let store = await Store.create(adapter, { key: createKey })
+    it('creates the store and lets items by written to it', async () => {
+      let store = await new Store(adapter, openOpts).create(createOpts)
       await store.update('/doc', () => ({ x: 42 }))
 
-      let checker = await Store.open(adapter, { key: { password } })
+      let checker = await new Store(adapter, openOpts).open()
       let doc = await checker.get('/doc')
       assert.deepEqual(doc, { x: 42 })
     })
@@ -42,12 +45,12 @@ testWithAdapters('Store', (impl) => {
 
   describe('with an existing data store', () => {
     beforeEach(async () => {
-      store = await Store.create(adapter, { key: createKey })
-      checker = await Store.open(adapter, { key: { password } })
+      store = await new Store(adapter, openOpts).create(createOpts)
+      checker = await new Store(adapter, openOpts).open()
     })
 
     it('does not allow the store to be re-created', async () => {
-      let error = await Store.create(adapter, { key: createKey }).catch(e => e)
+      let error = await new Store(adapter, openOpts).create(createOpts).catch(e => e)
       assert.equal(error.code, 'ERR_EXISTS')
     })
 
@@ -78,12 +81,12 @@ testWithAdapters('Store', (impl) => {
     })
 
     it('fails to open with the incorrect password', async () => {
-      let error = await Store.open(adapter, { key: { password: 'wrong' } }).catch(e => e)
+      let error = await new Store(adapter, { key: { password: 'wrong' } }).open().catch(e => e)
       assert.equal(error.code, 'ERR_ACCESS')
     })
 
     it('fails to open with no password', async () => {
-      let error = await Store.open(adapter).catch(e => e)
+      let error = await new Store(adapter).open().catch(e => e)
       assert.equal(error.code, 'ERR_CONFIG')
     })
   })
