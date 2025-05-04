@@ -186,7 +186,7 @@ function testCrypto (impl) {
         await assertRejects(() => impl.aes256gcm.decrypt(key, iv, msg))
       })
 
-      it('fails to decrypt with the correct AAD', async () => {
+      it('fails to decrypt without the correct AAD', async () => {
         let msg = Buffer.from('6Rwa/pasSMFtFDQNkc0C3i/60yl6pMK9RNxBaS7B9aaPOm9BIpsL05Bs8vESD89cMg==', 'base64')
         await assertRejects(() => impl.aes256gcm.decrypt(key, iv, msg))
       })
