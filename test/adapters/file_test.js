@@ -11,7 +11,7 @@ const STORE_PATH = path.resolve(__dirname, '..', '..', 'tmp', 'file-adapter')
 describe('FileAdapter', () => {
   testAdapterBehaviour({
     createAdapter () {
-      return new FileAdapter(STORE_PATH, { fsync: false })
+      return new FileAdapter({ path: STORE_PATH, fsync: false })
     },
 
     async cleanup () {

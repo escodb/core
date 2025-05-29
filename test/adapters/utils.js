@@ -22,7 +22,7 @@ function testWithAdapters (name, tests) {
 
     tests({
       createAdapter () {
-        return new FileAdapter(STORE_PATH, { fsync: false })
+        return new FileAdapter({ path: STORE_PATH, fsync: false })
       },
 
       async cleanup () {
