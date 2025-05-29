@@ -87,7 +87,7 @@ describe('CreateOptions', () => {
     let options = CreateOptions.parse({})
 
     assert.equal(options.password.iterations, 600000)
-    assert.equal(options.shards.n, 2)
+    assert.equal(options.shards.n, 4)
   })
 
   it('sets optional parameters', () => {
