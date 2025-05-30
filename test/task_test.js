@@ -119,12 +119,19 @@ testWithAdapters('Task', (impl) => {
       assert.deepEqual(doc, { a: 1, b: 2 })
     })
 
+    it('returns the updated state of the document', async () => {
+      await task.update('/doc', () => ({ a: 1 }))
+      let doc = await task.update('/doc', (doc) => ({ ...doc, b: 2 }))
+
+      assert.deepEqual(doc, { a: 1, b: 2 })
+    })
+
     it('yields a different copy of the doc to each updater', async () => {
       let doc_b, doc_c
 
       await task.update('/doc', () => ({ a: 1 }))
 
-      await Promise.all([
+      let results = await Promise.all([
         task.update('/doc', (doc) => {
           doc_b = doc
           doc.b = 2
@@ -137,9 +144,11 @@ testWithAdapters('Task', (impl) => {
         }),
       ])
 
-      let doc = await task.get('/doc')
-
       assert(doc_b !== doc_c)
+
+      assert.deepEqual(results, [{ a: 1, b: 2 }, { a: 1, b: 2, c: 3 }])
+
+      let doc = await task.get('/doc')
       assert.deepEqual(doc, { a: 1, b: 2, c: 3 })
     })
 
