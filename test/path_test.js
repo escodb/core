@@ -14,6 +14,16 @@ describe('Path', () => {
       let path = Path.parse('foo')
       assert(!path.isValid())
     })
+
+    it('returns true if the path contains allowed characters', () => {
+      let path = Path.parse('/a-b_c.0')
+      assert(path.isValid())
+    })
+
+    it('returns false if the path contains disallowed characters', () => {
+      let path = Path.parse('/a:b')
+      assert(!path.isValid())
+    })
   })
 
   describe('isDir()', () => {
