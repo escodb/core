@@ -1,6 +1,7 @@
 {
   "name": "@vault-db/core",
   "license": "Apache-2.0",
+  "main": "./lib/index",
   "devDependencies": {
     "chai": "^4.3.7",
     "mocha": "^9.2.2"
