@@ -33,7 +33,7 @@ testWithAdapters('Executor', (impl) => {
 
   it('executes two dependent changes to the same shard', async () => {
     let x = executor.add('A', [], (s) => s.link('/x/', 'doc1'))
-    let y = executor.add('A', [x.id], (s) => s.link('/y/', 'doc2'))
+    let y = executor.add('A', [x], (s) => s.link('/y/', 'doc2'))
 
     executor.poll()
     await Promise.all([x.promise, y.promise])
@@ -47,7 +47,7 @@ testWithAdapters('Executor', (impl) => {
 
   it('executes two dependent changes to different shards', async () => {
     let x = executor.add('A', [], (s) => s.link('/x/', 'doc1'))
-    let y = executor.add('B', [x.id], (s) => s.link('/y/', 'doc2'))
+    let y = executor.add('B', [x], (s) => s.link('/y/', 'doc2'))
 
     executor.poll()
     await Promise.all([x.promise, y.promise])
@@ -148,7 +148,7 @@ testWithAdapters('Executor', (impl) => {
 
     it('runs dependent changes for different shards sequentially', async () => {
       let x = executor.add('A', [], log('x', (s) => s.link('/x/', 'doc1')))
-      let y = executor.add('B', [x.id], log('y', (s) => s.link('/y/', 'doc2')))
+      let y = executor.add('B', [x], log('y', (s) => s.link('/y/', 'doc2')))
 
       executor.poll()
       await Promise.all([x.promise, y.promise])
@@ -177,7 +177,7 @@ testWithAdapters('Executor', (impl) => {
       let exec = new Executor(new Cache(store, cipher, verifier))
 
       let link = exec.add('A', [], (s) => s.link('/', 'doc'))
-      let put = exec.add('B', [link.id], (s) => s.put('/doc', (doc) => ({ ...doc, y: 2 })))
+      let put = exec.add('B', [link], (s) => s.put('/doc', (doc) => ({ ...doc, y: 2 })))
 
       exec.poll()
       return Promise.all([link.promise, put.promise])
@@ -187,7 +187,7 @@ testWithAdapters('Executor', (impl) => {
       let exec = new Executor(new Cache(store, cipher, verifier))
 
       let rm = exec.add('B', [], (s) => s.rm('/doc'))
-      let unlink = exec.add('A', [rm.id], (s) => s.unlink('/', 'doc'))
+      let unlink = exec.add('A', [rm], (s) => s.unlink('/', 'doc'))
 
       exec.poll()
       return Promise.all([rm.promise, unlink.promise])
