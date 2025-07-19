@@ -1,6 +1,23 @@
 {
-  "name": "@vault-db/core",
+  "name": "@escodb/core",
+  "version": "0.1.0",
+  "description": "End-to-end encrypted document store, built to run on cloud storage",
+  "keywords": [
+    "database",
+    "key-value store",
+    "document store",
+    "cryptography",
+    "encryption",
+    "e2ee"
+  ],
   "license": "Apache-2.0",
+  "homepage": "https://escodb.github.io/docs/",
+  "bugs": "https://github.com/escodb/core/issues",
+  "repository": "github:escodb/core",
+  "author": "James Coglan <jcoglan@gmail.com> (http://jcoglan.com/)",
+  "files": [
+    "lib"
+  ],
   "main": "./lib/index",
   "devDependencies": {
     "chai": "^4.3.7",
