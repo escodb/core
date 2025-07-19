@@ -1,6 +1,6 @@
 'use strict'
 
-const { Path } = require('../lib/path')
+const Path = require('../lib/path')
 const { assert } = require('chai')
 
 describe('Path', () => {
@@ -167,44 +167,44 @@ describe('Path', () => {
 
   describe('relative()', () => {
     it('returns the relative path of a child document', () => {
-      let dir = new Path('/path/to/')
-      let doc = new Path('/path/to/x.json')
+      let dir = Path.parse('/path/to/')
+      let doc = Path.parse('/path/to/x.json')
       assert.equal(doc.relative(dir), 'x.json')
     })
 
     it('returns the relative path of a sibling document', () => {
-      let x = new Path('/path/to/x.json')
-      let y = new Path('/path/to/y.json')
+      let x = Path.parse('/path/to/x.json')
+      let y = Path.parse('/path/to/y.json')
       assert.equal(y.relative(x), 'y.json')
     })
 
     it('returns the relative path of a grandchild document', () => {
-      let dir = new Path('/path/to/')
-      let doc = new Path('/path/to/nested/x.json')
+      let dir = Path.parse('/path/to/')
+      let doc = Path.parse('/path/to/nested/x.json')
       assert.equal(doc.relative(dir), 'nested/x.json')
     })
 
     it('returns the relative path of a child directory', () => {
-      let a = new Path('/path/to/')
-      let b = new Path('/path/to/x/')
+      let a = Path.parse('/path/to/')
+      let b = Path.parse('/path/to/x/')
       assert.equal(b.relative(a), 'x/')
     })
 
     it('returns the relative path of a parent directory', () => {
-      let dir = new Path('/path/to/')
-      let doc = new Path('/path/to/x.json')
+      let dir = Path.parse('/path/to/')
+      let doc = Path.parse('/path/to/x.json')
       assert.equal(dir.relative(doc), './')
     })
 
     it('returns the relative path of a grandparent directory', () => {
-      let dir = new Path('/path/')
-      let doc = new Path('/path/to/x.json')
+      let dir = Path.parse('/path/')
+      let doc = Path.parse('/path/to/x.json')
       assert.equal(dir.relative(doc), '../')
     })
 
     it('returns the relative path of a cousin document', () => {
-      let a = new Path('/path/a/1.json')
-      let b = new Path('/path/to/b/2.json')
+      let a = Path.parse('/path/a/1.json')
+      let b = Path.parse('/path/to/b/2.json')
 
       assert.equal(a.relative(b), '../../a/1.json')
       assert.equal(b.relative(a), '../to/b/2.json')
