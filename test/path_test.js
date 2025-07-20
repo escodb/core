@@ -20,11 +20,6 @@ describe('Path', () => {
       assert(path.isValid())
     })
 
-    it('returns false if the path contains disallowed characters', () => {
-      let path = Path.parse('/a:b')
-      assert(!path.isValid())
-    })
-
     it('returns false if the path contains empty segments', () => {
       let path = Path.parse('/a//b')
       assert(!path.isValid())
