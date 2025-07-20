@@ -24,6 +24,16 @@ describe('Path', () => {
       let path = Path.parse('/a:b')
       assert(!path.isValid())
     })
+
+    it('returns false if the path contains empty segments', () => {
+      let path = Path.parse('/a//b')
+      assert(!path.isValid())
+    })
+
+    it('returns false if the path ends with an empty segment', () => {
+      let path = Path.parse('/a/b//')
+      assert(!path.isValid())
+    })
   })
 
   describe('isDir()', () => {
@@ -162,6 +172,16 @@ describe('Path', () => {
     it('throws an error trying to join a document path', () => {
       let path = Path.parse('/path/to')
       assert.throws(() => path.join('x'))
+    })
+
+    it('throws an error trying to join to an empty segment', () => {
+      let path = Path.parse('/path/to/')
+      assert.throws(() => path.join(''))
+    })
+
+    it('throws an error trying to join to an invalid segment', () => {
+      let path = Path.parse('/path/to/')
+      assert.throws(() => path.join('a//b'))
     })
   })
 
