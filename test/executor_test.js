@@ -10,14 +10,16 @@ const { assert } = require('chai')
 const { testWithAdapters } = require('./adapters/utils')
 
 testWithAdapters('Executor', (impl) => {
-  let store, cipher, verifier, executor, cache
+  let store, env, executor, cache
 
   beforeEach(async () => {
+    let cipher = await AesGcmCipher.generate()
+    let verifier = await Verifier.generate()
+    env = { cipher, verifier }
+
     store = impl.createAdapter()
-    cipher = await AesGcmCipher.generate()
-    verifier = await Verifier.generate()
-    executor = new Executor(new Cache(store, cipher, verifier))
-    cache = new Cache(store, cipher, verifier)
+    executor = new Executor(new Cache(store, env))
+    cache = new Cache(store, env)
   })
 
   afterEach(impl.cleanup)
@@ -164,17 +166,17 @@ testWithAdapters('Executor', (impl) => {
 
   describe('with items in different shards', () => {
     beforeEach(async () => {
-      let shard = await Shard.parse('A', null, cipher, verifier)
+      let shard = await Shard.parse(null, { id: 'A', ...env })
       await shard.link('/', 'doc')
       await store.write('A', await shard.serialize())
 
-      shard = await Shard.parse('B', null, cipher, verifier)
+      shard = await Shard.parse(null, { id: 'B', ...env })
       await shard.put('/doc', () => ({ x: 1 }))
       await store.write('B', await shard.serialize())
     })
 
     function doUpdate () {
-      let exec = new Executor(new Cache(store, cipher, verifier))
+      let exec = new Executor(new Cache(store, env))
 
       let link = exec.add('A', [], (s) => s.link('/', 'doc'))
       let put = exec.add('B', [link], (s) => s.put('/doc', (doc) => ({ ...doc, y: 2 })))
@@ -184,7 +186,7 @@ testWithAdapters('Executor', (impl) => {
     }
 
     function doRemove () {
-      let exec = new Executor(new Cache(store, cipher, verifier))
+      let exec = new Executor(new Cache(store, env))
 
       let rm = exec.add('B', [], (s) => s.rm('/doc'))
       let unlink = exec.add('A', [rm], (s) => s.unlink('/', 'doc'))
@@ -194,11 +196,11 @@ testWithAdapters('Executor', (impl) => {
     }
 
     it('triggers a conflict between two clients', async () => {
-      let alice = new Executor(new Cache(store, cipher, verifier))
+      let alice = new Executor(new Cache(store, env))
       let op1 = alice.add('A', [], (s) => s.link('/', 'x'))
       alice.poll()
 
-      let bob = new Executor(new Cache(store, cipher, verifier))
+      let bob = new Executor(new Cache(store, env))
       let op2 = bob.add('A', [], (s) => s.link('/', 'y'))
       bob.poll()
 

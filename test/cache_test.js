@@ -9,20 +9,22 @@ const { assert } = require('chai')
 const { testWithAdapters } = require('./adapters/utils')
 
 testWithAdapters('Cache', (impl) => {
-  let adapter, cipher, verifier, cache
+  let adapter, env, cache
 
   beforeEach(async () => {
+    let cipher = await AesGcmCipher.generate()
+    let verifier = await Verifier.generate()
+    env = { cipher, verifier }
+
     adapter = impl.createAdapter()
-    cipher = await AesGcmCipher.generate()
-    verifier = await Verifier.generate()
-    cache = new Cache(adapter, cipher, verifier)
+    cache = new Cache(adapter, env)
   })
 
   afterEach(impl.cleanup)
 
   async function readFromStore (id) {
     let { value } = await adapter.read(id)
-    return Shard.parse(id, value, cipher, verifier)
+    return Shard.parse(value, { id, ...env })
   }
 
   describe('with no stored shards', () => {
@@ -44,7 +46,7 @@ testWithAdapters('Cache', (impl) => {
 
   describe('with a shard stored', () => {
     beforeEach(async () => {
-      let shard = await Shard.parse('x', null, cipher, verifier)
+      let shard = await Shard.parse(null, { id: 'x', ...env })
 
       await shard.link('/', 'path/')
       await shard.link('/path/', 'doc.txt')
@@ -103,7 +105,7 @@ testWithAdapters('Cache', (impl) => {
     })
 
     it('allows sequential updates from two clients', async () => {
-      let other = new Cache(adapter, cipher, verifier)
+      let other = new Cache(adapter, env)
 
       let copy = await other.read('x')
       await copy.put('/path/doc.txt', (doc) => ({ ...doc, q: 2 }))
@@ -123,7 +125,7 @@ testWithAdapters('Cache', (impl) => {
       beforeEach(async () => {
         await cache.read('x')
 
-        other = new Cache(adapter, cipher, verifier)
+        other = new Cache(adapter, env)
         let copy = await other.read('x')
         await copy.put('/path/doc.txt', (doc) => ({ ...doc, q: 2 }))
         await other.write('x')
@@ -193,7 +195,7 @@ testWithAdapters('Cache', (impl) => {
 
         assert.equal(counters.get('1.msg'), 5n)
 
-        cache = new Cache(adapter, cipher, verifier)
+        cache = new Cache(adapter, env)
         let shard = await cache.read('x')
         await shard.put('/path/doc.txt', (doc) => ({ ...doc, r: 3 }))
         await cache.write('x')

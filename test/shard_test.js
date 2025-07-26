@@ -7,12 +7,14 @@ const Verifier = require('../lib/verifier')
 const { assert } = require('chai')
 
 describe('Shard', () => {
-  let cipher, verifier, shard
+  let env, shard
 
   beforeEach(async () => {
-    cipher = await AesGcmCipher.generate()
-    verifier = await Verifier.generate()
-    shard = await Shard.parse('shard-id', null, cipher, verifier)
+    let cipher = await AesGcmCipher.generate()
+    let verifier = await Verifier.generate()
+    env = { cipher, verifier }
+
+    shard = await Shard.parse(null, { id: 'shard-id', ...env })
   })
 
   it('returns null for a non-existent directory', async () => {
@@ -129,7 +131,7 @@ describe('Shard', () => {
     })
 
     it('can be de/serialized', async () => {
-      let copy = await Shard.parse('shard-id', serial, cipher, verifier)
+      let copy = await Shard.parse(serial, { id: 'shard-id', ...env })
 
       assert.deepEqual(await copy.list('/'), ['doc.txt', 'other.txt'])
       assert.deepEqual(await copy.get('/doc.txt'), { a: 1 })
@@ -145,13 +147,13 @@ describe('Shard', () => {
       rows[4] = a
       serial = rows.join('\n')
 
-      let copy = await Shard.parse('shard-id', serial, cipher, verifier)
+      let copy = await Shard.parse(serial, { id: 'shard-id', ...env })
       let error = await copy.get('/doc.txt').catch(e => e)
       assert.equal(error.code, 'ERR_DECRYPT')
     })
 
     it('binds all shard content to the shard ID', async () => {
-      let error = await Shard.parse('wrong-id', serial, cipher, verifier).catch(e => e)
+      let error = await Shard.parse(serial, { id: 'wrong-id', ...env }).catch(e => e)
       assert.equal(error.code, 'ERR_AUTH_FAILED')
     })
 
@@ -170,7 +172,7 @@ describe('Shard', () => {
 
       serial = [JSON.stringify(header), ...items].join('\n')
 
-      let error = await Shard.parse('shard-id', serial, cipher, verifier).catch(e => e)
+      let error = await Shard.parse(serial, { id: 'shard-id', ...env }).catch(e => e)
       assert.equal(error.code, 'ERR_AUTH_FAILED')
     })
   })
