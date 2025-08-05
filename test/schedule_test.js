@@ -1646,75 +1646,109 @@ describe('Schedule', () => {
       assertShardList(schedule, 'C', [w8, w10])
     })
 
-    //      |                +----+
-    //    A |                | w2 |
-    //      |                +/--\+
-    //      |                /    \
-    //      |           +---/+    +\---+
-    //    B |           | w1 |    | w3 |
-    //      |           +----+    +---\+
-    //      |                          \
-    //      |        +------------+    +\---+
-    //    C |        | w7      w5 |    | w4 |
-    //      |        +/-----------+    +----+
-    //      |        /
-    //      |   +---/+
-    //    D |   | w6 |
-    //      |   +----+
-    //
-    it('allows any dependency-free group in a shard to be processed next', () => {
-      let schedule = new Schedule()
+    describe('out-of-order group processing', () => {
+      let schedule, w1, w2, w3, w4, w5, w6, w7
 
-      let w1 = schedule.add('B', [], 'val 1')
-      let w2 = schedule.add('A', [w1], 'val 2')
-      let w3 = schedule.add('B', [w2], 'val 3')
-      let w4 = schedule.add('C', [w3], 'val 4')
+      //      |                +----+
+      //    A |                | w2 |
+      //      |                +/--\+
+      //      |                /    \
+      //      |           +---/+    +\---+
+      //    B |           | w1 |    | w3 |
+      //      |           +----+    +---\+
+      //      |                          \
+      //      |        +------------+    +\---+
+      //    C |        | w7      w5 |    | w4 |
+      //      |        +/-----------+    +----+
+      //      |        /
+      //      |   +---/+
+      //    D |   | w6 |
+      //      |   +----+
+      //
+      beforeEach(() => {
+        schedule = new Schedule()
 
-      let w5 = schedule.add('C', [], 'val 5')
-      let w6 = schedule.add('D', [], 'val 6')
-      let w7 = schedule.add('C', [w6], 'val 7')
+        w1 = schedule.add('B', [], 'val 1')
+        w2 = schedule.add('A', [w1], 'val 2')
+        w3 = schedule.add('B', [w2], 'val 3')
+        w4 = schedule.add('C', [w3], 'val 4')
 
-      assertGraph(schedule, {
-        g1: ['B', [w1]],
-        g2: ['A', [w2], ['g1']],
-        g3: ['B', [w3], ['g2']],
-        g4: ['C', [w4], ['g3']],
-        g5: ['D', [w6]],
-        g6: ['C', [w7, w5], ['g5']]
+        w5 = schedule.add('C', [], 'val 5')
+        w6 = schedule.add('D', [], 'val 6')
+        w7 = schedule.add('C', [w6], 'val 7')
+
+        assertGraph(schedule, {
+          g1: ['B', [w1]],
+          g2: ['A', [w2], ['g1']],
+          g3: ['B', [w3], ['g2']],
+          g4: ['C', [w4], ['g3']],
+          g5: ['D', [w6]],
+          g6: ['C', [w7, w5], ['g5']]
+        })
+
+        assertShardList(schedule, 'C', [w7, w5], [w4])
       })
 
-      assertShardList(schedule, 'C', [w7, w5], [w4])
+      it('allows new ops to be placed in any non-started group', () => {
+        for (let i = 1; i <= 3; i++) {
+          schedule.nextGroup().started().completed()
+        }
 
-      let group1 = schedule.nextGroup().started()
-      assert.deepEqual([...group1.values()], ['val 1'])
+        assertGraph(schedule, {
+          g4: ['C', [w4], []],
+          g5: ['D', [w6]],
+          g6: ['C', [w7, w5], ['g5']]
+        })
 
-      let group2 = schedule.nextGroup().started()
-      assert.deepEqual([...group2.values()], ['val 6'])
+        let group1 = schedule.nextGroup().started()
+        assert.deepEqual([...group1.values()], ['val 4'])
 
-      group1.completed()
+        let group2 = schedule.nextGroup().started()
+        assert.deepEqual([...group2.values()], ['val 6'])
 
-      group1 = schedule.nextGroup().started()
-      assert.deepEqual([...group1.values()], ['val 2'])
+        let w8 = schedule.add('C', [], 'val 8')
 
-      group1.completed()
+        assertGraph(schedule, {
+          g4: ['C', [w4], []],
+          g5: ['D', [w6]],
+          g6: ['C', [w7, w5, w8], ['g5']]
+        })
 
-      group1 = schedule.nextGroup().started()
-      assert.deepEqual([...group1.values()], ['val 3'])
+        assertShardList(schedule, 'C', [w7, w5, w8], [w4])
+      })
 
-      group1.completed()
+      it('allows any dependency-free group in a shard to be processed next', () => {
+        let group1 = schedule.nextGroup().started()
+        assert.deepEqual([...group1.values()], ['val 1'])
 
-      group1 = schedule.nextGroup().started()
-      assert.deepEqual([...group1.values()], ['val 4'])
+        let group2 = schedule.nextGroup().started()
+        assert.deepEqual([...group2.values()], ['val 6'])
 
-      group2.completed()
+        group1.completed()
 
-      group2 = schedule.nextGroup()
-      assert.isNull(group2)
+        group1 = schedule.nextGroup().started()
+        assert.deepEqual([...group1.values()], ['val 2'])
 
-      group1.completed()
+        group1.completed()
 
-      group2 = schedule.nextGroup()
-      assert.deepEqual([...group2.values()], ['val 5', 'val 7'])
+        group1 = schedule.nextGroup().started()
+        assert.deepEqual([...group1.values()], ['val 3'])
+
+        group1.completed()
+
+        group1 = schedule.nextGroup().started()
+        assert.deepEqual([...group1.values()], ['val 4'])
+
+        group2.completed()
+
+        group2 = schedule.nextGroup()
+        assert.isNull(group2)
+
+        group1.completed()
+
+        group2 = schedule.nextGroup()
+        assert.deepEqual([...group2.values()], ['val 5', 'val 7'])
+      })
     })
   })
 
