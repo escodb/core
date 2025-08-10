@@ -440,6 +440,12 @@ testWithAdapters('Task', (impl) => {
       assert.deepEqual(await find('/'), ['a', 'path/b', 'path/c'])
     })
 
+    it('removes a parent directory if left empty', async () => {
+      await task.prune('/path/to/nested/')
+      assert.deepEqual(await find('/'), ['a', 'path/b', 'path/c'])
+      assert.deepEqual(await checker.list('/path/'), ['b', 'c'])
+    })
+
     it('throws an error for a non-dir path', async () => {
       let error = await task.prune('/path').catch(e => e)
       assert.equal(error.code, 'ERR_INVALID_PATH')
