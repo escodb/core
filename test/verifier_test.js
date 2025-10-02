@@ -4,12 +4,13 @@ const Verifier = require('../lib/verifier')
 const { randomBytes } = require('../lib/crypto')
 
 const { assert } = require('chai')
+const { generate } = require('./utils')
 
 describe('Verifier', () => {
   let verifier
 
   beforeEach(async () => {
-    verifier = await Verifier.generate()
+    verifier = await generate(Verifier)
   })
 
   it('signs a payload', async () => {

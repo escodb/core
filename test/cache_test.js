@@ -7,13 +7,14 @@ const Verifier = require('../lib/verifier')
 
 const { assert } = require('chai')
 const { testWithAdapters } = require('./adapters/utils')
+const { generate } = require('./utils')
 
 testWithAdapters('Cache', (impl) => {
   let adapter, env, cache
 
   beforeEach(async () => {
-    let cipher = await AesGcmCipher.generate()
-    let verifier = await Verifier.generate()
+    let cipher = await generate(AesGcmCipher)
+    let verifier = await generate(Verifier)
     env = { cipher, verifier }
 
     adapter = impl.createAdapter()

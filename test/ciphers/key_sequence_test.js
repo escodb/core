@@ -7,6 +7,7 @@ const Verifier = require('../../lib/verifier')
 const binaries = require('../../lib/format/binaries')
 
 const testCipherBehaviour = require('./behaviour')
+const { generate } = require('../utils')
 const { assert } = require('chai')
 
 const LIMIT = 10
@@ -14,8 +15,8 @@ const LIMIT = 10
 describe('KeySequenceCipher', () => {
   testCipherBehaviour({
     async createCipher () {
-      let root = await AesGcmCipher.generate()
-      let verifier = await Verifier.generate()
+      let root = await generate(AesGcmCipher)
+      let verifier = await generate(Verifier)
       return new KeySequenceCipher({}, root, verifier)
     }
   })
@@ -24,8 +25,8 @@ describe('KeySequenceCipher', () => {
     let context = { a: 'foo', b: 'bar' }, root, verifier, cipher
 
     beforeEach(async () => {
-      root = await AesGcmCipher.generate()
-      verifier = await Verifier.generate()
+      root = await generate(AesGcmCipher)
+      verifier = await generate(Verifier)
       cipher = new KeySequenceCipher(context, root, verifier, { limit: LIMIT })
 
       for (let i = 0; i < 1.5 * LIMIT; i++) {
@@ -128,8 +129,8 @@ describe('KeySequenceCipher', () => {
     let context = {}, root, verifier, cipher
 
     beforeEach(async () => {
-      root = await AesGcmCipher.generate()
-      verifier = await Verifier.generate()
+      root = await generate(AesGcmCipher)
+      verifier = await generate(Verifier)
       cipher = new KeySequenceCipher(context, root, verifier, { limit: LIMIT })
     })
 

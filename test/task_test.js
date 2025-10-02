@@ -8,6 +8,7 @@ const Verifier = require('../lib/verifier')
 
 const { assert } = require('chai')
 const { testWithAdapters } = require('./adapters/utils')
+const { generate } = require('./utils')
 
 testWithAdapters('Task', (impl) => {
   let router, adapter, env, task, checker
@@ -25,11 +26,11 @@ testWithAdapters('Task', (impl) => {
   }
 
   beforeEach(async () => {
-    let cipher = await AesGcmCipher.generate()
-    let verifier = await Verifier.generate()
+    let cipher = await generate(AesGcmCipher)
+    let verifier = await generate(Verifier)
     env = { cipher, verifier }
 
-    router = new Router({ n: 4, key: await Router.generateKey() })
+    router = await generate(Router, { n: 4 })
     adapter = impl.createAdapter()
     task = newTask()
     checker = newTask()

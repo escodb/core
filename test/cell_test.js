@@ -4,12 +4,13 @@ const { Cell, JsonCodec } = require('../lib/cell')
 const AesGcmCipher = require('../lib/ciphers/aes_gcm')
 
 const { assert } = require('chai')
+const { generate } = require('./utils')
 
 describe('Cell', () => {
   let cipher, cell
 
   beforeEach(async () => {
-    cipher = await AesGcmCipher.generate()
+    cipher = await generate(AesGcmCipher)
     cell = new Cell(cipher, JsonCodec)
   })
 

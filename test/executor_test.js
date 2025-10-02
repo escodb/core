@@ -8,13 +8,14 @@ const Verifier = require('../lib/verifier')
 
 const { assert } = require('chai')
 const { testWithAdapters } = require('./adapters/utils')
+const { generate } = require('./utils')
 
 testWithAdapters('Executor', (impl) => {
   let store, env, executor, cache
 
   beforeEach(async () => {
-    let cipher = await AesGcmCipher.generate()
-    let verifier = await Verifier.generate()
+    let cipher = await generate(AesGcmCipher)
+    let verifier = await generate(Verifier)
     env = { cipher, verifier }
 
     store = impl.createAdapter()

@@ -5,13 +5,14 @@ const Shard = require('../lib/shard')
 const Verifier = require('../lib/verifier')
 
 const { assert } = require('chai')
+const { generate } = require('./utils')
 
 describe('Shard', () => {
   let env, shard
 
   beforeEach(async () => {
-    let cipher = await AesGcmCipher.generate()
-    let verifier = await Verifier.generate()
+    let cipher = await generate(AesGcmCipher)
+    let verifier = await generate(Verifier)
     env = { cipher, verifier }
 
     shard = await Shard.parse(null, { id: 'shard-id', ...env })
