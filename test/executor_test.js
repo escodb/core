@@ -78,6 +78,25 @@ testWithAdapters('Executor', (impl) => {
     assert.deepEqual(dir, ['doc2'])
   })
 
+  it('poisons all operations in the same group if the caller throws', async () => {
+    let x = executor.add('A', [], (s) => s.put('/doc1', () => ({ a: 1 })))
+    let y = executor.add('A', [], (s) => s.put('/doc2', () => { throw new Error('oh no') }))
+    let z = executor.add('B', [x], (s) => s.put('/doc3', () => ({ c: 3 })))
+
+    executor.poll()
+
+    let errors = await Promise.all([x, y, z].map((op) => op.promise.catch(e => e)))
+    let messages = errors.map((e) => e.message)
+    assert.deepEqual(messages, ['oh no', 'oh no', 'oh no'])
+
+    let shard = await cache.read('A')
+    assert.isNull(await shard.get('/doc1'))
+    assert.isNull(await shard.get('/doc2'))
+
+    shard = await cache.read('B')
+    assert.isNull(await shard.get('/doc3'))
+  })
+
   it('exposes an error when writing the shard', async () => {
     store.write = () => Promise.reject(new Error('oh no'))
 

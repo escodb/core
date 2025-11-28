@@ -114,6 +114,30 @@ testWithAdapters('Task', (impl) => {
       assert.deepEqual(await checker.get('/path/of/val'), { b: 2 })
     })
 
+    it('exposes an error from the update() fn', async () => {
+      let result = task.update('/doc', () => { throw new Error('oh no') })
+      let error = await result.catch(e => e)
+      assert.equal(error.message, 'oh no')
+    })
+
+    it('does not corrupt shards if the update() fn throws', async () => {
+      let updates = []
+
+      for (let i = 0; i < 100; i++) {
+        let update = task.update(`/doc-${i}`, () => { throw new Error('oh no') })
+        updates.push(update)
+      }
+
+      await Promise.all(updates).catch(e => e)
+      await task.update('/sentinel', () => ({ a: 1 }))
+
+      let doc = await checker.get('/sentinel')
+      assert.deepEqual(doc, { a: 1 })
+
+      let list = await checker.list('/')
+      assert.include(list, 'sentinel')
+    })
+
     it('updates a document', async () => {
       await task.update('/doc', () => ({ a: 1 }))
       await task.update('/doc', (doc) => ({ ...doc, b: 2 }))
