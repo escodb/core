@@ -11,10 +11,12 @@ const { testWithAdapters } = require('./adapters/utils')
 const { generate } = require('./utils')
 
 testWithAdapters('Task', (impl) => {
-  let router, adapter, env, task, checker
+  let router, adapter, env, executors, task, checker
 
   function newTask () {
-    return new Task(adapter, router, env)
+    let task = new Task(adapter, router, env)
+    executors.push(task._executor)
+    return task
   }
 
   async function find (path) {
@@ -32,11 +34,16 @@ testWithAdapters('Task', (impl) => {
 
     router = await generate(Router, { n: 4 })
     adapter = impl.createAdapter()
+
+    executors = []
     task = newTask()
     checker = newTask()
   })
 
-  afterEach(impl.cleanup)
+  afterEach(async () => {
+    await Promise.all(executors.map((ex) => ex.onIdle()))
+    await impl.cleanup()
+  })
 
   it('throws an error for getting an invalid path', async () => {
     let error = await task.get('x').catch(e => e)
