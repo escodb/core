@@ -2,6 +2,7 @@
 
 const Mutex = require('../../lib/sync/mutex')
 const { assert } = require('chai')
+const { logger } = require('./utils')
 
 class Counter {
   constructor () {
@@ -14,17 +15,18 @@ class Counter {
 
   async inc () {
     let value = this._value
-    await null
+    for (let i = 0; i < 5; i++) await null
     this._value = value + 1
   }
 }
 
 describe('Mutex', () => {
-  let counter, mutex
+  let counter, mutex, logs
 
   beforeEach(() => {
     counter = new Counter()
     mutex = new Mutex()
+    logs = []
   })
 
   it('is inconsistent without a mutex', async () => {
@@ -48,19 +50,9 @@ describe('Mutex', () => {
   })
 
   it('forces functions to execute sequentially', async () => {
-    let logs = []
-
     await Promise.all([
-      mutex.lock(async () => {
-        logs.push('a')
-        await null
-        logs.push('b')
-      }),
-      mutex.lock(async () => {
-        logs.push('c')
-        await null
-        logs.push('d')
-      })
+      mutex.lock(logger(logs, 'a', 'b')),
+      mutex.lock(logger(logs, 'c', 'd'))
     ])
 
     assert.deepEqual(logs, ['a', 'b', 'c', 'd'])
