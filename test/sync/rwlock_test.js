@@ -59,6 +59,16 @@ describe('RWLock', () => {
     assert.deepEqual(logs, ['a', 'b', 'c', 'e', 'd', 'f'])
   })
 
+  it('delays a read behind multiple writes', async () => {
+    await Promise.all([
+      rwlock.write(logger(logs, 'a', 'b')),
+      rwlock.write(logger(logs, 'c', 'd')),
+      rwlock.read(logger(logs, 'e', 'f'))
+    ])
+
+    assert.deepEqual(logs, ['a', 'b', 'c', 'd', 'e', 'f'])
+  })
+
   it('forces sequential execution around a write', async () => {
     await Promise.all([
       rwlock.read(logger(logs, 'a', 'b')),
