@@ -1419,6 +1419,41 @@ describe('Schedule', () => {
       })
     })
 
+    it('removes downstream ops for a single failed op', () => {
+      let group = schedule.nextGroup()
+
+      group.started()
+      group.opFailed(w1)
+
+      assertGraph(schedule, {
+        g1: ['B', [w1, w3]],
+        g2: ['A', [w4, w5], ['g1']],
+        g3: ['B', [w6], ['g2']]
+      })
+
+      group.completed()
+
+      assertGraph(schedule, {
+        g1: ['A', [w4, w5]],
+        g2: ['B', [w6], ['g1']]
+      })
+    })
+
+    it('removes all downstream ops for a single failed op', () => {
+      let w7 = schedule.add('B', [w4])
+      let group = schedule.nextGroup()
+
+      group.started()
+      group.opFailed(w3)
+      group.completed()
+
+      assertGraph(schedule, {
+        g1: ['C', [w2]],
+        g2: ['A', [w5]],
+        g3: ['B', [w6], ['g2']]
+      })
+    })
+
     describe('when a shard has groups scheduled after a started group', () => {
       let schedule, group
 
