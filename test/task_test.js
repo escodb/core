@@ -11,10 +11,12 @@ const { testWithAdapters } = require('./adapters/utils')
 const { generate } = require('./utils')
 
 testWithAdapters('Task', (impl) => {
-  let router, adapter, env, task, checker
+  let router, adapter, env, executors, task, checker
 
   function newTask () {
-    return new Task(adapter, router, env)
+    let task = new Task(adapter, router, env)
+    executors.push(task._executor)
+    return task
   }
 
   async function find (path) {
@@ -32,11 +34,16 @@ testWithAdapters('Task', (impl) => {
 
     router = await generate(Router, { n: 4 })
     adapter = impl.createAdapter()
+
+    executors = []
     task = newTask()
     checker = newTask()
   })
 
-  afterEach(impl.cleanup)
+  afterEach(async () => {
+    await Promise.all(executors.map((ex) => ex.onIdle()))
+    await impl.cleanup()
+  })
 
   it('throws an error for getting an invalid path', async () => {
     let error = await task.get('x').catch(e => e)
@@ -112,6 +119,30 @@ testWithAdapters('Task', (impl) => {
 
       assert.deepEqual(await checker.get('/path/to/doc'), { a: 1 })
       assert.deepEqual(await checker.get('/path/of/val'), { b: 2 })
+    })
+
+    it('exposes an error from the update() fn', async () => {
+      let result = task.update('/doc', () => { throw new Error('oh no') })
+      let error = await result.catch(e => e)
+      assert.equal(error.message, 'oh no')
+    })
+
+    it('does not corrupt shards if the update() fn throws', async () => {
+      let updates = []
+
+      for (let i = 0; i < 100; i++) {
+        let update = task.update(`/doc-${i}`, () => { throw new Error('oh no') })
+        updates.push(update)
+      }
+
+      await Promise.all(updates).catch(e => e)
+      await task.update('/sentinel', () => ({ a: 1 }))
+
+      let doc = await checker.get('/sentinel')
+      assert.deepEqual(doc, { a: 1 })
+
+      let list = await checker.list('/')
+      assert.include(list, 'sentinel')
     })
 
     it('updates a document', async () => {

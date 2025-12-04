@@ -176,6 +176,18 @@ describe('Shard', () => {
       let error = await Shard.parse(serial, { id: 'shard-id', ...env }).catch(e => e)
       assert.equal(error.code, 'ERR_AUTH_FAILED')
     })
+
+    it('is not corrupted if a client fails while updating', async () => {
+      let put = shard.put('/nope', () => { throw new Error('oh no') })
+
+      let error = await put.catch(e => e)
+      assert.equal(error.message, 'oh no')
+
+      serial = await shard.serialize()
+      let copy = await Shard.parse(serial, { id: 'shard-id', ...env })
+
+      assert.deepEqual(await copy.list('/'), ['doc.txt', 'other.txt'])
+    })
   })
 
   describe('concurrent operations', () => {
