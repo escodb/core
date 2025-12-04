@@ -78,23 +78,41 @@ testWithAdapters('Executor', (impl) => {
     assert.deepEqual(dir, ['doc2'])
   })
 
-  it('poisons all operations in the same group if the caller throws', async () => {
-    let x = executor.add('A', [], (s) => s.put('/doc1', () => ({ a: 1 })))
-    let y = executor.add('A', [], (s) => s.put('/doc2', () => { throw new Error('oh no') }))
-    let z = executor.add('B', [x], (s) => s.put('/doc3', () => ({ c: 3 })))
+  it('poisons dependent operations if the caller throws', async () => {
+    let u = executor.add('A', [], (s) => s.put('/doc0', () => { throw new Error('oh no') }))
+    let v = executor.add('A', [], (s) => s.put('/doc1', () => ({ a: 1 })))
+    let w = executor.add('A', [u], (s) => s.put('/doc2', () => ({ b: 2 })))
+
+    let x = executor.add('B', [u], (s) => s.put('/doc3', () => ({ c: 3 })))
+    let y = executor.add('B', [v], (s) => s.put('/doc4', () => ({ d: 4 })))
+    let z = executor.add('C', [w], (s) => s.put('/doc5', () => ({ e: 5 })))
 
     executor.poll()
 
-    let errors = await Promise.all([x, y, z].map((op) => op.promise.catch(e => e)))
-    let messages = errors.map((e) => e.message)
-    assert.deepEqual(messages, ['oh no', 'oh no', 'oh no'])
+    let results = await Promise.all(
+      [u, v, w, x, y, z].map((op) => op.promise.catch(e => e.message))
+    )
+
+    assert.deepEqual(results, [
+      'oh no',
+      { a: 1 },
+      'oh no',
+      'oh no',
+      { d: 4 },
+      'oh no'
+    ])
 
     let shard = await cache.read('A')
-    assert.isNull(await shard.get('/doc1'))
+    assert.isNull(await shard.get('/doc0'))
+    assert.deepEqual(await shard.get('/doc1'), { a: 1 })
     assert.isNull(await shard.get('/doc2'))
 
     shard = await cache.read('B')
     assert.isNull(await shard.get('/doc3'))
+    assert.deepEqual(await shard.get('/doc4'), { d: 4 })
+
+    shard = await cache.read('C')
+    assert.isNull(await shard.get('/doc5'))
   })
 
   it('exposes an error when writing the shard', async () => {
