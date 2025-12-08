@@ -1386,25 +1386,27 @@ describe('Schedule', () => {
     })
 
     //      |                +------------+
-    //    A |                | w4      w5 |
-    //      |                +/--\-------\+
-    //      |                /    \       \
-    //      |   +-----------/+    +\-------\---+
-    //    B |   | w1      w3 |    | w7      w6 |
-    //      |   +---\--------+    +------------+
-    //      |        \
-    //      |        +\---+
-    //    C |        | w2 |
-    //      |        +----+
+    //    A |                | w4      w5 ----------.
+    //      |                +/--\-------\+          \
+    //      |                /    \       \           \
+    //      |   +-----------/+    +\-------\---+       \
+    //    B |   | w1      w3 |    | w7      w6 |        \
+    //      |   +---\--------+    +-----------\+         \
+    //      |        \                         \          \
+    //      |        +\-------------------------\----------\---+
+    //    C |        | w2                        w8         w9 |
+    //      |        +-----------------------------------------+
     //
     it('removes all downstream operations for a failed group', () => {
       let w7 = schedule.add('B', [w4])
+      let w8 = schedule.add('C', [w6])
+      let w9 = schedule.add('C', [w5])
 
       assertGraph(schedule, {
         g1: ['B', [w1, w3]],
-        g2: ['C', [w2], ['g1']],
-        g3: ['A', [w4, w5], ['g1']],
-        g4: ['B', [w7, w6], ['g3']]
+        g2: ['A', [w4, w5], ['g1']],
+        g3: ['B', [w7, w6], ['g2']],
+        g4: ['C', [w2, w8, w9], ['g1', 'g2', 'g3']]
       })
 
       let group = schedule.nextGroup()
@@ -1412,7 +1414,43 @@ describe('Schedule', () => {
       group.failed()
 
       assertGraph(schedule, {
-        g1: ['A', [w5]]
+        g1: ['A', [w5]],
+        g2: ['C', [w9], ['g1']]
+      })
+    })
+
+    it('removes downstream ops for a single failed op', () => {
+      let group = schedule.nextGroup()
+
+      group.started()
+      group.opFailed(w1)
+
+      assertGraph(schedule, {
+        g1: ['B', [w1, w3]],
+        g2: ['A', [w4, w5], ['g1']],
+        g3: ['B', [w6], ['g2']]
+      })
+
+      group.completed()
+
+      assertGraph(schedule, {
+        g1: ['A', [w4, w5]],
+        g2: ['B', [w6], ['g1']]
+      })
+    })
+
+    it('removes all downstream ops for a single failed op', () => {
+      let w7 = schedule.add('B', [w4])
+      let group = schedule.nextGroup()
+
+      group.started()
+      group.opFailed(w3)
+      group.completed()
+
+      assertGraph(schedule, {
+        g1: ['C', [w2]],
+        g2: ['A', [w5]],
+        g3: ['B', [w6], ['g2']]
       })
     })
 

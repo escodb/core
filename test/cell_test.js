@@ -59,6 +59,17 @@ describe('Cell', () => {
     assert.notEqual(buf1, buf2)
   })
 
+  it('fails to serialize if the cell is empty', async () => {
+    let error = await cell.serialize().catch(e => e)
+    assert.equal(error.code, 'ERR_CORRUPT')
+  })
+
+  it('fails to serialize if set to a null value', async () => {
+    cell.set(null)
+    let error = await cell.serialize().catch(e => e)
+    assert.equal(error.code, 'ERR_CORRUPT')
+  })
+
   it('decrypts the value it is constructed with', async () => {
     cell.set({ ok: 'cool' })
     let encrypted = await cell.serialize()
