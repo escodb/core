@@ -4,16 +4,16 @@ const Schedule = require('../lib/schedule')
 const { assert } = require('chai')
 
 function assertGraph (schedule, spec) {
-  let { _groups } = schedule
+  let { _groups: { _nodes: groups } } = schedule
 
   let groupIds = Object.keys(spec)
   let mapping = new Map()
 
-  assert.equal(_groups.size, groupIds.length,
-    `schedule expected to contain ${groupIds.length} groups but contained ${_groups.size}`)
+  assert.equal(groups.size, groupIds.length,
+    `schedule expected to contain ${groupIds.length} groups but contained ${groups.size}`)
 
   for (let [id, [shard, ops, deps = []]] of Object.entries(spec)) {
-    let group = findGroup(_groups, shard, ops)
+    let group = findGroup(groups, shard, ops)
 
     if (!group) {
       assert.fail(`no group found matching shard and operations for '${id}'`)
@@ -48,7 +48,7 @@ function assertShardList (schedule, shard, ...expected) {
     `shard '${shard}' expected to have ${expected.length} groups but had ${groups.length}`)
 
   for (let [idx, groupId] of groups.entries()) {
-    let group = schedule._groups.get(groupId)
+    let [group] = schedule._groups.get([groupId])
     assert.sameMembers([...group.ops], expected[idx])
   }
 }
