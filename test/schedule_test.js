@@ -1207,7 +1207,6 @@ describe('Schedule', () => {
   describe('consumer interface', () => {
     let w1, w2, w3, w4, w5, w6
 
-    //
     //      |                +------------+
     //    A |                | w4      w5 |
     //      |                +/----------\+
