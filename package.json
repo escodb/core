@@ -23,6 +23,9 @@
     "lib"
   ],
   "main": "./lib/index",
+  "dependencies": {
+    "@escodb/buffer": "github:escodb/buffer"
+  },
   "devDependencies": {
     "chai": "^4.3.7",
     "mocha": "^9.2.2"

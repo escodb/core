@@ -1,5 +1,6 @@
 'use strict'
 
+const { Buffer } = require('@escodb/buffer')
 const AesGcmCipher = require('../lib/ciphers/aes_gcm')
 const Shard = require('../lib/shard')
 const Verifier = require('../lib/verifier')

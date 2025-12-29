@@ -1,5 +1,7 @@
 'use strict'
 
+const { Buffer } = require('@escodb/buffer')
+
 const Router = require('../lib/router')
 const { assert } = require('chai')
 

@@ -1,5 +1,7 @@
 'use strict'
 
+const { Buffer } = require('@escodb/buffer')
+
 const { Cell, JsonCodec } = require('../lib/cell')
 const AesGcmCipher = require('../lib/ciphers/aes_gcm')
 
