@@ -1,5 +1,7 @@
 'use strict'
 
+const { Buffer } = require('@escodb/buffer')
+
 const Context = require('../lib/ciphers/context')
 const Verifier = require('../lib/verifier')
 const { randomBytes } = require('../lib/crypto')

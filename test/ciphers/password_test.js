@@ -1,5 +1,7 @@
 'use strict'
 
+const { Buffer } = require('@escodb/buffer')
+
 const crypto = require('../../lib/crypto')
 const Context = require('../../lib/ciphers/context')
 const PasswordCipher = require('../../lib/ciphers/password')

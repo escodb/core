@@ -1,5 +1,6 @@
 'use strict'
 
+const { Buffer } = require('@escodb/buffer')
 const { assert } = require('chai')
 const Context = require('../../lib/ciphers/context')
 
