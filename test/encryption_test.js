@@ -40,18 +40,20 @@ describe('encryption', () => {
 
     // The user key is derived from the password using PBKDF2
     let salt = b64(config.password.salt)
-    let userKey = await pbkdf2.digest(password, salt, config.password.iterations, 256)
+    let { iterations } = config.password
+    let pwCtx = Context.create('passwd', { salt, iterations })
+    let userKey = await pbkdf2.digest(password, salt, iterations, 256)
     assert.equal(userKey.length, 32)
 
-    // The root key is encrypted using the user key
+    // The root key is encrypted using the user key and password params
     let rootKey = b64(config.cipher.key)
-    let ctx = Context.create('config', { file: 'config', scope: 'keys.cipher' })
+    let ctx = pwCtx.prefix('config').add({ file: 'config', scope: 'keys.cipher' })
     rootKey = await decrypt(userKey, rootKey, ctx)
     assert.equal(rootKey.length, 32)
 
-    // The auth key is encrypted using the user key
+    // The auth key is encrypted using the user key and password params
     let authKey = b64(config.auth.key)
-    ctx = Context.create('config', { file: 'config', scope: 'keys.auth' })
+    ctx = pwCtx.prefix('config').add({ file: 'config', scope: 'keys.auth' })
     authKey = await decrypt(userKey, authKey, ctx)
     assert.equal(authKey.length, 64)
 
