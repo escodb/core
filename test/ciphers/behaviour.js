@@ -1,6 +1,7 @@
 'use strict'
 
 const { assert } = require('chai')
+const Context = require('../../lib/ciphers/context')
 
 function testCipherBehaviour (impl) {
   let cipher, message
@@ -38,7 +39,8 @@ function testCipherBehaviour (impl) {
 
   it('encrypts a message with binding context', async () => {
     let aad = Buffer.from('binding context', 'utf8')
-    let enc = await cipher.encrypt(message, { n: 42 })
+    let ctx = Context.create(null, { n: 42 })
+    let enc = await cipher.encrypt(message, ctx)
 
     assert.instanceOf(enc, Buffer)
     assert(enc.length === 76 || enc.length === 80)
@@ -46,15 +48,17 @@ function testCipherBehaviour (impl) {
 
   it('decrypts a message with binding context', async () => {
     let aad = Buffer.from('binding context', 'utf8')
-    let enc = await cipher.encrypt(message, { n: 42 })
-    let dec = await cipher.decrypt(enc, { n: 42 })
+    let ctx = Context.create(null, { n: 42 })
+    let enc = await cipher.encrypt(message, ctx)
+    let dec = await cipher.decrypt(enc, ctx)
 
     assert.equal(dec.toString('utf8'), message)
   })
 
   it('fails to decrypt a message with no binding context', async () => {
     let aad = Buffer.from('binding context', 'utf8')
-    let enc = await cipher.encrypt(message, { n: 42 })
+    let ctx = Context.create(null, { n: 42 })
+    let enc = await cipher.encrypt(message, ctx)
 
     let error = await cipher.decrypt(enc).catch(e => e)
     assert.equal(error.code, 'ERR_DECRYPT')
@@ -62,9 +66,10 @@ function testCipherBehaviour (impl) {
 
   it('fails to decrypt a message with incorrect binding context', async () => {
     let aad = Buffer.from('binding context', 'utf8')
-    let enc = await cipher.encrypt(message, { n: 42 })
+    let ctx = Context.create(null, { n: 42 })
+    let enc = await cipher.encrypt(message, ctx)
 
-    let error = await cipher.decrypt(enc, { n: 43 }).catch(e => e)
+    let error = await cipher.decrypt(enc, ctx.add({ wrong: 1 })).catch(e => e)
     assert.equal(error.code, 'ERR_DECRYPT')
   })
 }
