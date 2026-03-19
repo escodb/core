@@ -51,13 +51,13 @@ describe('encryption', () => {
     rootKey = await decrypt(userKey, rootKey, ctx)
     assert.equal(rootKey.length, 32)
 
-    // The auth key is encrypted using the user key and password params
-    let authKey = b64(config.auth.key)
-    ctx = pwCtx.prefix('config').add({ file: 'config', scope: 'keys.auth' })
-    authKey = await decrypt(userKey, authKey, ctx)
-    assert.equal(authKey.length, 64)
+    // The verify key is encrypted using the user key and password params
+    let verifyKey = b64(config.verify.key)
+    ctx = pwCtx.prefix('config').add({ file: 'config', scope: 'keys.verify' })
+    verifyKey = await decrypt(userKey, verifyKey, ctx)
+    assert.equal(verifyKey.length, 64)
 
-    // The key seqs and counters are authenticated using the auth key and are
+    // The key seqs and counters are authenticated using the verify key and are
     // bound to the shard
     let keys = header.cipher.keys.map((key) => {
       let [seq, cell] = binaries.load(['u32', 'bytes'], b64(key))
@@ -67,7 +67,7 @@ describe('encryption', () => {
     let state = b64(header.cipher.state)
     ctx = Context.create('dbfile', { file: 'shard-0000-ffff', scope: 'keys' }).prefix('keyseq').add({ keys: seqs, state })
     let mac = b64(header.cipher.mac)
-    let verified = await hmacSha256.verify(authKey, ctx.toBuffer(), mac)
+    let verified = await hmacSha256.verify(verifyKey, ctx.toBuffer(), mac)
 
     assert.equal(seqs.length, 4)
     assert.equal(state.length, 16)
