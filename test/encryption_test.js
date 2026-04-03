@@ -1,10 +1,9 @@
 'use strict'
 
 const AesGcmCipher = require('../lib/ciphers/aes_gcm')
-const { hmacSha256, pbkdf2 } = require('../lib/crypto')
-
 const binaries = require('../lib/format/binaries')
-const canon = require('../lib/format/canon')
+const Context = require('../lib/ciphers/context')
+const { hmacSha256, pbkdf2 } = require('../lib/crypto')
 
 const MemoryAdapter = require('../lib/adapters/memory')
 const Store = require('../lib/store')
@@ -41,22 +40,24 @@ describe('encryption', () => {
 
     // The user key is derived from the password using PBKDF2
     let salt = b64(config.password.salt)
-    let userKey = await pbkdf2.digest(password, salt, config.password.iterations, 256)
+    let { iterations } = config.password
+    let pwCtx = Context.create('passwd', { salt, iterations })
+    let userKey = await pbkdf2.digest(password, salt, iterations, 256)
     assert.equal(userKey.length, 32)
 
-    // The root key is encrypted using the user key
+    // The root key is encrypted using the user key and password params
     let rootKey = b64(config.cipher.key)
-    let ctx = { file: 'config', scope: 'keys.cipher' }
+    let ctx = pwCtx.prefix('config').add({ file: 'config', scope: 'keys.cipher' })
     rootKey = await decrypt(userKey, rootKey, ctx)
     assert.equal(rootKey.length, 32)
 
-    // The auth key is encrypted using the user key
-    let authKey = b64(config.auth.key)
-    ctx = { file: 'config', scope: 'keys.auth' }
-    authKey = await decrypt(userKey, authKey, ctx)
-    assert.equal(authKey.length, 64)
+    // The verify key is encrypted using the user key and password params
+    let verifyKey = b64(config.verify.key)
+    ctx = pwCtx.prefix('config').add({ file: 'config', scope: 'keys.verify' })
+    verifyKey = await decrypt(userKey, verifyKey, ctx)
+    assert.equal(verifyKey.length, 64)
 
-    // The key seqs and counters are authenticated using the auth key and are
+    // The key seqs and counters are authenticated using the verify key and are
     // bound to the shard
     let keys = header.cipher.keys.map((key) => {
       let [seq, cell] = binaries.load(['u32', 'bytes'], b64(key))
@@ -64,9 +65,9 @@ describe('encryption', () => {
     })
     let seqs = binaries.dumpArray('u32', keys.map((k) => k.seq))
     let state = b64(header.cipher.state)
-    ctx = { file: 'shard-0000-ffff', scope: 'keys', keys: seqs, state }
+    ctx = Context.create('dbfile', { file: 'shard-0000-ffff', scope: 'keys' }).prefix('keyseq').add({ keys: seqs, state })
     let mac = b64(header.cipher.mac)
-    let verified = await hmacSha256.verify(authKey, canon.encode(ctx), mac)
+    let verified = await hmacSha256.verify(verifyKey, ctx.toBuffer(), mac)
 
     assert.equal(seqs.length, 4)
     assert.equal(state.length, 16)
@@ -76,7 +77,7 @@ describe('encryption', () => {
     // The shard key is encrypted using the root key, and bound to its shard
     // and key seq
     let { seq: keySeq, cell: shardKey } = keys[0]
-    ctx = { file: 'shard-0000-ffff', scope: 'keys', key: keySeq }
+    ctx = Context.create('dbfile', { file: 'shard-0000-ffff', scope: 'keys' }).prefix('keyseq').add({ key: keySeq })
     shardKey = await decrypt(rootKey, shardKey, ctx)
     shardKey = binaries.load(['u16', 'bytes'], shardKey)[1]
     assert.equal(shardKey.length, 32)
@@ -87,7 +88,7 @@ describe('encryption', () => {
 
     // The item is encrypted using the shard key, and bound to its shard, key
     // seq, and item path
-    ctx = { file: 'shard-0000-ffff', scope: 'items', key: itemSeq, path: '/doc' }
+    ctx = Context.create('dbfile', { file: 'shard-0000-ffff', scope: 'items', path: '/doc' }).prefix('keyseq').add({ key: itemSeq })
     item = await decrypt(shardKey, item, ctx)
 
     assert.equal(itemSeq, keySeq)

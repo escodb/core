@@ -30,7 +30,7 @@ testWithAdapters('Config', (impl) => {
 
     assert.match(config.cipher.key, /^[a-z0-9/+]+=*$/i)
 
-    assert.match(config.auth.key, /^[a-z0-9/+]+=*$/i)
+    assert.match(config.verify.key, /^[a-z0-9/+]+=*$/i)
 
     assert.match(config.shards.key, /^[a-z0-9/+]+=*$/i)
     assert.equal(config.shards.n, 4)
@@ -71,5 +71,50 @@ testWithAdapters('Config', (impl) => {
 
     let keys = new Set(configs.map((c) => c._data.cipher.key))
     assert.equal(keys.size, 1)
+  })
+
+  describe('parameter verification', () => {
+    async function modify (fn) {
+      let { value, rev } = await adapter.read('config')
+      let config = JSON.parse(value)
+      fn(config)
+      await adapter.write('config', JSON.stringify(config), rev)
+    }
+
+    beforeEach(async () => {
+      await Config.create(adapter, openOpts, createOpts)
+    })
+
+    it('fails to load if the cipher params are modified', async () => {
+      await modify((config) => { config.cipher.extra = 1 })
+      let config = await Config.open(adapter, openOpts)
+
+      let error = await config.buildCipher().catch(e => e)
+      assert.equal(error.code, 'ERR_ACCESS')
+    })
+
+    it('fails to load if the verify params are modified', async () => {
+      await modify((config) => { config.verify.extra = 1 })
+      let config = await Config.open(adapter, openOpts)
+
+      let error = await config.buildVerifier().catch(e => e)
+      assert.equal(error.code, 'ERR_ACCESS')
+    })
+
+    it('fails to load if the router params are modified', async () => {
+      await modify((config) => { config.shards.n = 100 })
+      let config = await Config.open(adapter, openOpts)
+
+      let error = await config.buildRouter().catch(e => e)
+      assert.equal(error.code, 'ERR_ACCESS')
+    })
+
+    it('fails to load if the shard count is removed', async () => {
+      await modify((config) => { delete config.shards.n })
+      let config = await Config.open(adapter, openOpts)
+
+      let error = await config.buildRouter().catch(e => e)
+      assert.equal(error.code, 'ERR_ACCESS')
+    })
   })
 })

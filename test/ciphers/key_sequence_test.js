@@ -1,6 +1,7 @@
 'use strict'
 
 const AesGcmCipher = require('../../lib/ciphers/aes_gcm')
+const Context = require('../../lib/ciphers/context')
 const KeySequenceCipher = require('../../lib/ciphers/key_sequence')
 const crypto = require('../../lib/crypto')
 const Verifier = require('../../lib/verifier')
@@ -17,12 +18,13 @@ describe('KeySequenceCipher', () => {
     async createCipher () {
       let root = await generate(AesGcmCipher)
       let verifier = await generate(Verifier)
-      return new KeySequenceCipher({}, root, verifier)
+      return new KeySequenceCipher(Context.create(), root, verifier)
     }
   })
 
   describe('authentication', () => {
-    let context = { a: 'foo', b: 'bar' }, root, verifier, cipher
+    let context = Context.create(null, { a: 'foo', b: 'bar' })
+    let root, verifier, cipher
 
     beforeEach(async () => {
       root = await generate(AesGcmCipher)
@@ -49,7 +51,8 @@ describe('KeySequenceCipher', () => {
         0, 0, 0, 0, 0, 0, 0, 10
       ])
 
-      let signature = await verifier.sign({ keys, state, a: 'foo', b: 'bar' })
+      let ctx = context.prefix('keyseq').add({ keys, state })
+      let signature = await verifier.sign(ctx)
 
       assert.equal(mac, signature)
     })
@@ -62,7 +65,8 @@ describe('KeySequenceCipher', () => {
 
     it('rejects a state with a different context', async () => {
       let state = await cipher.serialize()
-      let error = await KeySequenceCipher.parse(state, { diff: 'context' }, root, verifier).catch(e => e)
+      let wrong = context.add({ diff: 'context' })
+      let error = await KeySequenceCipher.parse(state, wrong, root, verifier).catch(e => e)
       assert.equal(error.code, 'ERR_AUTH_FAILED')
     })
 
@@ -126,7 +130,8 @@ describe('KeySequenceCipher', () => {
   })
 
   describe('key rotation', () => {
-    let context = {}, root, verifier, cipher
+    let context = Context.create()
+    let root, verifier, cipher
 
     beforeEach(async () => {
       root = await generate(AesGcmCipher)
