@@ -28,9 +28,11 @@
   },
   "devDependencies": {
     "chai": "^4.3.7",
+    "esbuild": "^0.28.0",
     "mocha": "^11.7.5"
   },
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "test:web": "esbuild --bundle test/web/main.js --outfile=test/web/bundle.js --watch --servedir=."
   }
 }

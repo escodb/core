@@ -1,4 +1,5 @@
 {
   "spec": "test/**/*_test.js",
+  "exclude": "test/web/*",
   "reporter": "dot"
 }
