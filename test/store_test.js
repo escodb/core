@@ -14,7 +14,7 @@ testWithAdapters('Store', (impl) => {
   let createOpts = { password: { iterations: 10 } }
 
   beforeEach(async () => {
-    adapter = impl.createAdapter()
+    adapter = await impl.createAdapter()
   })
 
   afterEach(impl.cleanup)

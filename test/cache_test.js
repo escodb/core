@@ -17,7 +17,7 @@ testWithAdapters('Cache', (impl) => {
     let verifier = await generate(Verifier)
     env = { cipher, verifier }
 
-    adapter = impl.createAdapter()
+    adapter = await impl.createAdapter()
     cache = new Cache(adapter, env)
   })
 

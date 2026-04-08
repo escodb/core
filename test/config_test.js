@@ -11,8 +11,8 @@ testWithAdapters('Config', (impl) => {
   let openOpts = { key: { password } }
   let createOpts = { password: { iterations: 10 } }
 
-  beforeEach(() => {
-    adapter = impl.createAdapter()
+  beforeEach(async () => {
+    adapter = await impl.createAdapter()
   })
 
   afterEach(impl.cleanup)

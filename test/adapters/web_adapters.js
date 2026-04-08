@@ -1,12 +1,13 @@
 'use strict'
 
 const MemoryAdapter = require('../../lib/adapters/memory')
-const testAdapterBehaviour = require('./behaviour')
 
-describe('MemoryAdapter', () => {
-  testAdapterBehaviour({
+module.exports = {
+  memory: {
     createAdapter () {
       return new MemoryAdapter()
-    }
-  })
-})
+    },
+
+    cleanup () {}
+  }
+}

@@ -1,17 +1,16 @@
 'use strict'
 
 const { assert } = require('chai')
+const { testWithAdapters } = require('./utils')
 
-function testAdapterBehaviour (impl) {
+testWithAdapters('Adapter', (impl) => {
   let adapter
 
-  beforeEach(() => {
-    adapter = impl.createAdapter()
+  beforeEach(async () => {
+    adapter = await impl.createAdapter()
   })
 
-  afterEach(async () => {
-    if (impl.cleanup) await impl.cleanup()
-  })
+  afterEach(impl.cleanup)
 
   it('returns null for an unknown key', async () => {
     let result = await adapter.read('x')
@@ -88,6 +87,4 @@ function testAdapterBehaviour (impl) {
     let result = await adapter.read('x')
     assert.strictEqual(result.value, w1.rev ? 'world' : 'other')
   })
-}
-
-module.exports = testAdapterBehaviour
+})
