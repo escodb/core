@@ -195,12 +195,8 @@ function testCrypto (impl) {
   })
 }
 
-const NodeCrypto = require('../lib/crypto/node_crypto')
-describe('crypto (node)', () => testCrypto(NodeCrypto))
+const impls = require('.')
 
-const version = process.version.match(/\d+/g).map((n) => parseInt(n, 10))
-
-if (version[0] >= 16) {
-  const WebCrypto = require('../lib/crypto/web_crypto')
-  describe('crypto (web)', () => testCrypto(WebCrypto))
+for (let [name, impl] of Object.entries(impls)) {
+  describe(`crypto (${name})`, () => testCrypto(impl))
 }
