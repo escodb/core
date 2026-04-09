@@ -6,7 +6,7 @@ const WebStorageAdapter = require('../../lib/adapters/web_storage')
 module.exports = {
   memory: {
     createAdapter () {
-      return new MemoryAdapter()
+      return MemoryAdapter.create()
     },
 
     cleanup () {}
@@ -14,7 +14,7 @@ module.exports = {
 
   web_storage: {
     createAdapter () {
-      return new WebStorageAdapter({ storage: localStorage })
+      return WebStorageAdapter.create({ storage: localStorage })
     },
 
     cleanup () {

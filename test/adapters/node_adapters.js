@@ -14,7 +14,7 @@ module.exports = {
   file: {
     createAdapter (name) {
       let storePath = resolve(TMP_PATH, `test-${name}`)
-      return new FileAdapter({ path: storePath, fsync: false })
+      return FileAdapter.create({ path: storePath, fsync: false })
     },
 
     async cleanup (name) {
