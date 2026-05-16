@@ -482,5 +482,34 @@ testWithAdapters('Task', (impl) => {
       let error = await task.prune('/path').catch(e => e)
       assert.equal(error.code, 'ERR_INVALID_PATH')
     })
+
+    describe('concurrent with update()', () => {
+      beforeEach(async () => {
+        let writer = newTask()
+        await writer.prune('/')
+
+        let ns = [1, 2, 3, 4]
+
+        let updates = ns.flatMap((x) => {
+          return ns.flatMap((y) => {
+            return ns.map((z) => writer.update(`/a${x}/b${y}/c${z}`, () => ({ x, y, z })))
+          })
+        })
+        await Promise.all(updates)
+      })
+
+      it('handles a new doc being created in the pruned directory', async () => {
+        await Promise.all([
+          newTask().prune('/'),
+          newTask().update('/a2/b3/new', () => ({ ok: true }))
+        ])
+
+        let docs = await find('/')
+
+        if (docs.length > 0) {
+          assert.deepEqual(docs, ['a2/b3/new'])
+        }
+      })
+    })
   })
 })
