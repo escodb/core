@@ -23,7 +23,10 @@ testWithAdapters('Executor', (impl) => {
     cache = new Cache(store, env)
   })
 
-  afterEach(impl.cleanup)
+  afterEach(async () => {
+    await executor.onIdle()
+    await impl.cleanup()
+  })
 
   it('executes a single change to a shard', async () => {
     let link = executor.add('A', [], (s) => s.link('/', 'doc.txt'))
@@ -133,13 +136,13 @@ testWithAdapters('Executor', (impl) => {
   it('continues execution after a write failure', async () => {
     store.write = () => Promise.reject(new Error('oh no'))
 
-    let x = executor.add('A', [], (s) => s.link('/x/', 'doc1'))
+    let x = executor.add('A', [], (s) => s.link('/x/', 'doc1')).promise.catch(e => e)
     executor.poll()
 
-    let y = executor.add('A', [], (s) => s.link('/y/', 'doc2'))
+    let y = executor.add('A', [], (s) => s.link('/y/', 'doc2')).promise.catch(e => e)
     executor.poll()
 
-    let error = await y.promise.catch(e => e)
+    let error = await y
     assert.equal(error.message, 'oh no')
   })
 
