@@ -10,6 +10,27 @@ const { assert } = require('chai')
 const { testWithAdapters } = require('./adapters/utils')
 const { generate } = require('./utils')
 
+async function assertOneOf (outcomes) {
+  let passing = []
+  let failing = []
+
+  for (let [name, fn] of Object.entries(outcomes)) {
+    try {
+      await fn()
+      passing.push(name)
+    } catch (error) {
+      failing.push(name)
+    }
+  }
+
+  if (passing.length == 0) {
+    throw new Error('none of the expected outcomes came to pass')
+  }
+  if (passing.length > 1) {
+    throw new Error(`more than one outcome came to pass: ${passing.join(', ')}`)
+  }
+}
+
 testWithAdapters('Task', (impl) => {
   let router, adapter, env, executors, task, checker
 
@@ -386,16 +407,20 @@ testWithAdapters('Task', (impl) => {
         let checker = newTask()
         let doc = await checker.get('/path/nested/to/z')
 
-        if (doc) {
-          assert.deepEqual(doc, { z: 0 })
-          assert.deepEqual(await checker.list('/path/nested/to/'), ['z'])
-          assert.deepEqual(await checker.list('/path/nested/'), ['to/'])
-          assert.deepEqual(await checker.list('/path/'), ['nested/', 'to/'])
-        } else {
-          assert.isNull(await checker.list('/path/nested/to/'))
-          assert.isNull(await checker.list('/path/nested/'))
-          assert.deepEqual(await checker.list('/path/'), ['to/'])
-        }
+        await assertOneOf({
+          'doc is updated': async () => {
+            assert.deepEqual(doc, { z: 0 })
+            assert.deepEqual(await checker.list('/path/nested/to/'), ['z'])
+            assert.deepEqual(await checker.list('/path/nested/'), ['to/'])
+            assert.deepEqual(await checker.list('/path/'), ['nested/', 'to/'])
+          },
+          'doc is removed': async () => {
+            assert.isNull(doc)
+            assert.isNull(await checker.list('/path/nested/to/'))
+            assert.isNull(await checker.list('/path/nested/'))
+            assert.deepEqual(await checker.list('/path/'), ['to/'])
+          }
+        })
       })
 
       it('allows a new document being created in the same directory', async () => {
@@ -506,9 +531,14 @@ testWithAdapters('Task', (impl) => {
 
         let docs = await find('/')
 
-        if (docs.length > 0) {
-          assert.deepEqual(docs, ['a2/b3/new'])
-        }
+        await assertOneOf({
+          'directory is empty': () => {
+            assert.deepEqual(docs, [])
+          },
+          'directory contains only the new doc': () => {
+            assert.deepEqual(docs, ['a2/b3/new'])
+          }
+        })
       })
     })
   })
