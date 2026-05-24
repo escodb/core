@@ -8,31 +8,10 @@ const Verifier = require('../lib/verifier')
 
 const { assert } = require('chai')
 const { testWithAdapters } = require('./adapters/utils')
-const { generate } = require('./utils')
-
-async function assertOneOf (outcomes) {
-  let passing = []
-  let failing = []
-
-  for (let [name, fn] of Object.entries(outcomes)) {
-    try {
-      await fn()
-      passing.push(name)
-    } catch (error) {
-      failing.push(name)
-    }
-  }
-
-  if (passing.length == 0) {
-    throw new Error('none of the expected outcomes came to pass')
-  }
-  if (passing.length > 1) {
-    throw new Error(`more than one outcome came to pass: ${passing.join(', ')}`)
-  }
-}
+const { assertOneOf, generate } = require('./utils')
 
 testWithAdapters('Task', (impl) => {
-  let router, adapter, env, executors, task, checker
+  let router, adapter, env, executors, writer, checker
 
   function newTask () {
     let task = new Task(adapter, router, env)
@@ -57,7 +36,7 @@ testWithAdapters('Task', (impl) => {
     adapter = impl.createAdapter()
 
     executors = []
-    task = newTask()
+    writer = newTask()
     checker = newTask()
   })
 
@@ -67,45 +46,45 @@ testWithAdapters('Task', (impl) => {
   })
 
   it('throws an error for getting an invalid path', async () => {
-    let error = await task.get('x').catch(e => e)
+    let error = await checker.get('x').catch(e => e)
     assert.equal(error.code, 'ERR_INVALID_PATH')
   })
 
   it('throws an error for getting a non-doc path', async () => {
-    let error = await task.get('/x/').catch(e => e)
+    let error = await checker.get('/x/').catch(e => e)
     assert.equal(error.code, 'ERR_INVALID_PATH')
   })
 
   it('throws an error for listing an invalid path', async () => {
-    let error = await task.list('x').catch(e => e)
+    let error = await checker.list('x').catch(e => e)
     assert.equal(error.code, 'ERR_INVALID_PATH')
   })
 
   it('throws an error for listing a non-dir path', async () => {
-    let error = await task.list('/x').catch(e => e)
+    let error = await checker.list('/x').catch(e => e)
     assert.equal(error.code, 'ERR_INVALID_PATH')
   })
 
   it('returns null for a missing document', async () => {
-    let doc = await task.get('/doc')
+    let doc = await checker.get('/doc')
     assert.isNull(doc)
   })
 
   it('returns null for an empty directory', async () => {
-    let dir = await task.list('/')
+    let dir = await checker.list('/')
     assert.isNull(dir)
   })
 
   describe('update()', () => {
     it('throws an error for a non-doc path', async () => {
-      let error = await task.update('/path/', () => {}).catch(e => e)
+      let error = await writer.update('/path/', () => {}).catch(e => e)
       assert.equal(error.code, 'ERR_INVALID_PATH')
     })
 
     it('exposes an error when writing a shard', async () => {
       adapter.write = () => Promise.reject(new Error('oh no'))
 
-      let error = await task.update('/doc', () => ({ a: 1 })).catch(e => e)
+      let error = await writer.update('/doc', () => ({ a: 1 })).catch(e => e)
       assert.equal(error.message, 'oh no')
 
       assert.isNull(await checker.list('/'))
@@ -113,14 +92,14 @@ testWithAdapters('Task', (impl) => {
     })
 
     it('creates a document', async () => {
-      await task.update('/doc', () => ({ a: 1 }))
+      await writer.update('/doc', () => ({ a: 1 }))
 
       assert.deepEqual(await checker.list('/'), ['doc'])
       assert.deepEqual(await checker.get('/doc'), { a: 1 })
     })
 
     it('creates a document in a nested directory', async () => {
-      await task.update('/path/to/doc', () => ({ a: 1 }))
+      await writer.update('/path/to/doc', () => ({ a: 1 }))
 
       assert.deepEqual(await checker.list('/'), ['path/'])
       assert.deepEqual(await checker.list('/path/'), ['to/'])
@@ -130,8 +109,8 @@ testWithAdapters('Task', (impl) => {
 
     it('creates two documents with common ancestors', async () => {
       await Promise.all([
-        task.update('/path/to/doc', () => ({ a: 1 })),
-        task.update('/path/of/val', () => ({ b: 2 }))
+        writer.update('/path/to/doc', () => ({ a: 1 })),
+        writer.update('/path/of/val', () => ({ b: 2 }))
       ])
 
       assert.deepEqual(await checker.list('/'), ['path/'])
@@ -143,7 +122,7 @@ testWithAdapters('Task', (impl) => {
     })
 
     it('exposes an error from the update() fn', async () => {
-      let result = task.update('/doc', () => { throw new Error('oh no') })
+      let result = writer.update('/doc', () => { throw new Error('oh no') })
       let error = await result.catch(e => e)
       assert.equal(error.message, 'oh no')
     })
@@ -152,12 +131,12 @@ testWithAdapters('Task', (impl) => {
       let updates = []
 
       for (let i = 0; i < 100; i++) {
-        let update = task.update(`/doc-${i}`, () => { throw new Error('oh no') })
+        let update = writer.update(`/doc-${i}`, () => { throw new Error('oh no') })
         updates.push(update)
       }
 
       await Promise.all(updates).catch(e => e)
-      await task.update('/sentinel', () => ({ a: 1 }))
+      await writer.update('/sentinel', () => ({ a: 1 }))
 
       let doc = await checker.get('/sentinel')
       assert.deepEqual(doc, { a: 1 })
@@ -167,16 +146,16 @@ testWithAdapters('Task', (impl) => {
     })
 
     it('updates a document', async () => {
-      await task.update('/doc', () => ({ a: 1 }))
-      await task.update('/doc', (doc) => ({ ...doc, b: 2 }))
+      await writer.update('/doc', () => ({ a: 1 }))
+      await writer.update('/doc', (doc) => ({ ...doc, b: 2 }))
 
       let doc = await checker.get('/doc')
       assert.deepEqual(doc, { a: 1, b: 2 })
     })
 
     it('returns the updated state of the document', async () => {
-      await task.update('/doc', () => ({ a: 1 }))
-      let doc = await task.update('/doc', (doc) => ({ ...doc, b: 2 }))
+      await writer.update('/doc', () => ({ a: 1 }))
+      let doc = await writer.update('/doc', (doc) => ({ ...doc, b: 2 }))
 
       assert.deepEqual(doc, { a: 1, b: 2 })
     })
@@ -184,15 +163,15 @@ testWithAdapters('Task', (impl) => {
     it('yields a different copy of the doc to each updater', async () => {
       let doc_b, doc_c
 
-      await task.update('/doc', () => ({ a: 1 }))
+      await writer.update('/doc', () => ({ a: 1 }))
 
       let results = await Promise.all([
-        task.update('/doc', (doc) => {
+        writer.update('/doc', (doc) => {
           doc_b = doc
           doc.b = 2
           return doc
         }),
-        task.update('/doc', (doc) => {
+        writer.update('/doc', (doc) => {
           doc_c = doc
           doc.c = 3
           return doc
@@ -203,28 +182,6 @@ testWithAdapters('Task', (impl) => {
 
       assert.deepEqual(results, [{ a: 1, b: 2 }, { a: 1, b: 2, c: 3 }])
 
-      let doc = await task.get('/doc')
-      assert.deepEqual(doc, { a: 1, b: 2, c: 3 })
-    })
-
-    it('applies concurrent updates from the same task', async () => {
-      await Promise.all([
-        task.update('/doc', (doc) => ({ ...doc, a: 1 })),
-        task.update('/doc', (doc) => ({ ...doc, b: 2 })),
-        task.update('/doc', (doc) => ({ ...doc, c: 3 }))
-      ])
-
-      let doc = await checker.get('/doc')
-      assert.deepEqual(doc, { a: 1, b: 2, c: 3 })
-    })
-
-    it('applies concurrent updates from different tasks', async () => {
-      await Promise.all([
-        newTask().update('/doc', (doc) => ({ ...doc, a: 1 })),
-        newTask().update('/doc', (doc) => ({ ...doc, b: 2 })),
-        newTask().update('/doc', (doc) => ({ ...doc, c: 3 }))
-      ])
-
       let doc = await checker.get('/doc')
       assert.deepEqual(doc, { a: 1, b: 2, c: 3 })
     })
@@ -233,10 +190,10 @@ testWithAdapters('Task', (impl) => {
   describe('find()', () => {
     beforeEach(async () => {
       await Promise.all([
-        task.update('/a', () => ({ a: 1 })),
-        task.update('/path/b', () => ({ b: 2 })),
-        task.update('/path/c', () => ({ c: 3 })),
-        task.update('/path/to/nested/d', () => ({ d: 4 }))
+        writer.update('/a', () => ({ a: 1 })),
+        writer.update('/path/b', () => ({ b: 2 })),
+        writer.update('/path/c', () => ({ c: 3 })),
+        writer.update('/path/to/nested/d', () => ({ d: 4 }))
       ])
     })
 
@@ -273,8 +230,6 @@ testWithAdapters('Task', (impl) => {
 
   describe('remove()', () => {
     beforeEach(async () => {
-      let writer = newTask()
-
       await Promise.all([
         writer.update('/path/to/x', () => ({ a: 1 })),
         writer.update('/path/to/y', () => ({ b: 2 })),
@@ -283,33 +238,33 @@ testWithAdapters('Task', (impl) => {
     })
 
     it('throws an error for a non-doc path', async () => {
-      let error = await task.remove('/path/').catch(e => e)
+      let error = await writer.remove('/path/').catch(e => e)
       assert.equal(error.code, 'ERR_INVALID_PATH')
     })
 
     it('removes a document', async () => {
-      await task.remove('/path/to/x')
+      await writer.remove('/path/to/x')
 
       let doc = await checker.get('/path/to/x')
       assert.isNull(doc)
     })
 
     it('removes a document from its parent directory', async () => {
-      await task.remove('/path/to/x')
+      await writer.remove('/path/to/x')
 
       let dir = await checker.list('/path/to/')
       assert.deepEqual(dir, ['y'])
     })
 
     it('leaves non-empty parent directories in place', async () => {
-      await task.remove('/path/to/x')
+      await writer.remove('/path/to/x')
 
       let dir = await checker.list('/path/')
       assert.deepEqual(dir, ['nested/', 'to/'])
     })
 
     it('removes empty parent directories', async () => {
-      await task.remove('/path/nested/to/z')
+      await writer.remove('/path/nested/to/z')
 
       assert.isNull(await checker.list('/path/nested/to/'))
       assert.isNull(await checker.list('/path/nested/'))
@@ -318,7 +273,7 @@ testWithAdapters('Task', (impl) => {
     })
 
     it('does not remove a directory if a non-existent item is removed', async () => {
-      await task.remove('/path/to/nested/a')
+      await writer.remove('/path/to/nested/a')
 
       assert.deepEqual(await checker.list('/path/nested/to/'), ['z'])
       assert.deepEqual(await checker.list('/path/nested/'), ['to/'])
@@ -337,8 +292,8 @@ testWithAdapters('Task', (impl) => {
 
     it('removes a parent directory if one client removes its items', async () => {
       await Promise.all([
-        task.remove('/path/to/x'),
-        task.remove('/path/to/y')
+        writer.remove('/path/to/x'),
+        writer.remove('/path/to/y')
       ])
 
       assert.isNull(await checker.list('/path/to/'))
@@ -360,9 +315,9 @@ testWithAdapters('Task', (impl) => {
 
     it('lets a single task fully empty the storage', async () => {
       await Promise.all([
-        task.remove('/path/to/x'),
-        task.remove('/path/to/y'),
-        task.remove('/path/nested/to/z')
+        writer.remove('/path/to/x'),
+        writer.remove('/path/to/y'),
+        writer.remove('/path/nested/to/z')
       ])
 
       for (let dir of ['/', '/path/', '/path/nested/', '/path/to/']) {
@@ -372,10 +327,10 @@ testWithAdapters('Task', (impl) => {
 
     it('only removes directories that are genuinely empty', async () => {
       await Promise.all([
-        task.remove('/path/to/x'),
-        task.update('/path/to/a', () => ({ a: 1 })),
-        task.remove('/path/to/y'),
-        task.remove('/path/nested/to/z')
+        writer.remove('/path/to/x'),
+        writer.update('/path/to/a', () => ({ a: 1 })),
+        writer.remove('/path/to/y'),
+        writer.remove('/path/nested/to/z')
       ])
 
       assert.deepEqual(await checker.list('/'), ['path/'])
@@ -387,59 +342,12 @@ testWithAdapters('Task', (impl) => {
 
     it('links a new doc while a non-existent doc is removed', async () => {
       await Promise.all([
-        task.remove('/new/a'),
-        task.update('/new/b', () => ({ b: 2 }))
+        writer.remove('/new/a'),
+        writer.update('/new/b', () => ({ b: 2 }))
       ])
 
       assert.deepEqual(await checker.list('/'), ['new/', 'path/'])
       assert.deepEqual(await checker.list('/new/'), ['b'])
-    })
-
-    describe('concurrent with update()', () => {
-      it('serializes concurrent remove() and update() requests', async () => {
-        await newTask().update('/path/nested/to/z', () => ({ ok: true }))
-
-        await Promise.all([
-          newTask().update('/path/nested/to/z', (doc) => ({ ...doc, z: 0 })),
-          newTask().remove('/path/nested/to/z')
-        ])
-
-        let checker = newTask()
-        let doc = await checker.get('/path/nested/to/z')
-
-        await assertOneOf({
-          'doc is updated': async () => {
-            assert.deepEqual(doc, { z: 0 })
-            assert.deepEqual(await checker.list('/path/nested/to/'), ['z'])
-            assert.deepEqual(await checker.list('/path/nested/'), ['to/'])
-            assert.deepEqual(await checker.list('/path/'), ['nested/', 'to/'])
-          },
-          'doc is removed': async () => {
-            assert.isNull(doc)
-            assert.isNull(await checker.list('/path/nested/to/'))
-            assert.isNull(await checker.list('/path/nested/'))
-            assert.deepEqual(await checker.list('/path/'), ['to/'])
-          }
-        })
-      })
-
-      it('allows a new document being created in the same directory', async () => {
-        await newTask().prune('/path/nested/')
-        await newTask().update('/path/nested/to/z', () => ({ z: 0 }))
-
-        await Promise.all([
-          newTask().remove('/path/nested/to/z'),
-          newTask().update('/path/nested/to/y', () => ({ y: 0 }))
-        ])
-
-        let checker = newTask()
-        let doc = await checker.get('/path/nested/to/y')
-
-        assert.deepEqual(doc, { y: 0 })
-        assert.deepEqual(await checker.list('/path/nested/to/'), ['y'])
-        assert.deepEqual(await checker.list('/path/nested/'), ['to/'])
-        assert.deepEqual(await checker.list('/path/'), ['nested/', 'to/'])
-      })
     })
   })
 
@@ -475,44 +383,139 @@ testWithAdapters('Task', (impl) => {
   describe('prune()', () => {
     beforeEach(async () => {
       await Promise.all([
-        task.update('/a', () => ({ a: 1 })),
-        task.update('/path/b', () => ({ b: 2 })),
-        task.update('/path/c', () => ({ c: 3 })),
-        task.update('/path/to/nested/d', () => ({ d: 4 }))
+        writer.update('/a', () => ({ a: 1 })),
+        writer.update('/path/b', () => ({ b: 2 })),
+        writer.update('/path/c', () => ({ c: 3 })),
+        writer.update('/path/to/nested/d', () => ({ d: 4 }))
       ])
     })
 
     it('removes all docs', async () => {
-      await task.prune('/')
+      await writer.prune('/')
       assert.deepEqual(await find('/'), [])
     })
 
     it('removes the docs from a directory', async () => {
-      await task.prune('/path/')
+      await writer.prune('/path/')
       assert.deepEqual(await find('/'), ['a'])
     })
 
     it('removes the docs from a nested directory', async () => {
-      await task.prune('/path/to/')
+      await writer.prune('/path/to/')
       assert.deepEqual(await find('/'), ['a', 'path/b', 'path/c'])
     })
 
     it('removes a parent directory if left empty', async () => {
-      await task.prune('/path/to/nested/')
+      await writer.prune('/path/to/nested/')
       assert.deepEqual(await find('/'), ['a', 'path/b', 'path/c'])
       assert.deepEqual(await checker.list('/path/'), ['b', 'c'])
     })
 
     it('throws an error for a non-dir path', async () => {
-      let error = await task.prune('/path').catch(e => e)
+      let error = await writer.prune('/path').catch(e => e)
       assert.equal(error.code, 'ERR_INVALID_PATH')
     })
+  })
 
-    describe('concurrent with update()', () => {
+  describe('concurrent operations', () => {
+    describe('update()', () => {
+      it('applies concurrent updates from the same task', async () => {
+        await Promise.all([
+          writer.update('/doc', (doc) => ({ ...doc, a: 1 })),
+          writer.update('/doc', (doc) => ({ ...doc, b: 2 })),
+          writer.update('/doc', (doc) => ({ ...doc, c: 3 }))
+        ])
+
+        let doc = await checker.get('/doc')
+        assert.deepEqual(doc, { a: 1, b: 2, c: 3 })
+      })
+
+      it('applies concurrent updates from different tasks', async () => {
+        await Promise.all([
+          newTask().update('/doc', (doc) => ({ ...doc, a: 1 })),
+          newTask().update('/doc', (doc) => ({ ...doc, b: 2 })),
+          newTask().update('/doc', (doc) => ({ ...doc, c: 3 }))
+        ])
+
+        let doc = await checker.get('/doc')
+        assert.deepEqual(doc, { a: 1, b: 2, c: 3 })
+      })
+
+      it('applies each change exactly once', async () => {
+        await writer.update('/doc', () => ({ n: [] }))
+        let counter = 0
+
+        function update (k) {
+          return newTask().update('/doc', (doc) => {
+            counter += 1
+            doc.n.push(k)
+            return doc
+          })
+        }
+
+        await Promise.all([update(1), update(2), update(4)])
+        assert.isAbove(counter, 3)
+
+        let doc = await checker.get('/doc')
+        assert.deepEqual(doc.n.sort(), [1, 2, 4])
+      })
+    })
+
+    describe('update() and remove()', () => {
       beforeEach(async () => {
-        let writer = newTask()
-        await writer.prune('/')
+        await Promise.all([
+          writer.update('/path/to/x', () => ({ a: 1 })),
+          writer.update('/path/to/y', () => ({ b: 2 })),
+          writer.update('/path/nested/to/z', () => ({ c: 3 }))
+        ])
+      })
 
+      it('serializes concurrent requests', async () => {
+        await newTask().update('/path/nested/to/z', () => ({ ok: true }))
+
+        await Promise.all([
+          newTask().update('/path/nested/to/z', (doc) => ({ ...doc, z: 0 })),
+          newTask().remove('/path/nested/to/z')
+        ])
+
+        let doc = await checker.get('/path/nested/to/z')
+
+        await assertOneOf({
+          'doc is updated': async () => {
+            assert.deepEqual(doc, { z: 0 })
+            assert.deepEqual(await checker.list('/path/nested/to/'), ['z'])
+            assert.deepEqual(await checker.list('/path/nested/'), ['to/'])
+            assert.deepEqual(await checker.list('/path/'), ['nested/', 'to/'])
+          },
+          'doc is removed': async () => {
+            assert.isNull(doc)
+            assert.isNull(await checker.list('/path/nested/to/'))
+            assert.isNull(await checker.list('/path/nested/'))
+            assert.deepEqual(await checker.list('/path/'), ['to/'])
+          }
+        })
+      })
+
+      it('allows a new document being created in the same directory', async () => {
+        await newTask().prune('/path/nested/')
+        await newTask().update('/path/nested/to/z', () => ({ z: 0 }))
+
+        await Promise.all([
+          newTask().remove('/path/nested/to/z'),
+          newTask().update('/path/nested/to/y', () => ({ y: 0 }))
+        ])
+
+        let doc = await checker.get('/path/nested/to/y')
+
+        assert.deepEqual(doc, { y: 0 })
+        assert.deepEqual(await checker.list('/path/nested/to/'), ['y'])
+        assert.deepEqual(await checker.list('/path/nested/'), ['to/'])
+        assert.deepEqual(await checker.list('/path/'), ['nested/', 'to/'])
+      })
+    })
+
+    describe('update() and prune()', () => {
+      beforeEach(async () => {
         let ns = [1, 2, 3, 4]
 
         let updates = ns.flatMap((x) => {
