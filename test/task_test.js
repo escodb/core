@@ -33,7 +33,7 @@ testWithAdapters('Task', (impl) => {
     env = { cipher, verifier }
 
     router = await generate(Router, { n: 4 })
-    adapter = impl.createAdapter()
+    adapter = await impl.createAdapter()
 
     executors = []
     writer = newTask()

@@ -1,5 +1,7 @@
 'use strict'
 
+const { Buffer } = require('@escodb/buffer')
+
 const AesGcmCipher = require('../lib/ciphers/aes_gcm')
 const binaries = require('../lib/format/binaries')
 const Context = require('../lib/ciphers/context')
@@ -16,7 +18,7 @@ describe('encryption', () => {
   let createOpts = { password: { iterations: 10 }, shards: { n: 1 } }
 
   beforeEach(async () => {
-    adapter = new MemoryAdapter()
+    adapter = await MemoryAdapter.create()
     store = await new Store(adapter, { key: { password } }).create(createOpts)
     await store.update('/doc', () => ({ secret: 'value' }))
   })

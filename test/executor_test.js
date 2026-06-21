@@ -18,7 +18,7 @@ testWithAdapters('Executor', (impl) => {
     let verifier = await generate(Verifier)
     env = { cipher, verifier }
 
-    store = impl.createAdapter()
+    store = await impl.createAdapter()
     executor = new Executor(new Cache(store, env))
     cache = new Cache(store, env)
   })

@@ -20,14 +20,21 @@
     "node": ">=12.0.0"
   },
   "files": [
+    "exports",
     "lib"
   ],
-  "main": "./lib/index",
+  "main": "./exports/node_exports",
+  "browser": "./exports/web_exports",
+  "dependencies": {
+    "@escodb/buffer": "github:escodb/buffer"
+  },
   "devDependencies": {
     "chai": "^4.3.7",
+    "esbuild": "^0.28.0",
     "mocha": "^11.7.5"
   },
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "test:web": "esbuild --bundle test/web/main.js --outfile=test/web/bundle.js --watch --servedir=."
   }
 }

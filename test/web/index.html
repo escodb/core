@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Mocha</title>
+    <link rel="stylesheet" href="../../node_modules/mocha/mocha.css">
+  </head>
+  <body>
+
+    <div id="mocha"></div>
+
+    <script src="../../node_modules/mocha/mocha.js"></script>
+    <script src="./bundle.js"></script>
+
+    <script>
+      let es = new EventSource('/esbuild')
+      es.addEventListener('change', () => location.reload())
+    </script>
+
+  </body>
+</html>
