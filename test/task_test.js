@@ -163,27 +163,30 @@ testWithAdapters('Task', (impl) => {
     it('yields a different copy of the doc to each updater', async () => {
       let doc_b, doc_c
 
-      await writer.update('/doc', () => ({ a: 1 }))
+      await writer.update('/doc', () => ({ props: { a: 1 } }))
 
       let results = await Promise.all([
         writer.update('/doc', (doc) => {
           doc_b = doc
-          doc.b = 2
+          doc.props.b = 2
           return doc
         }),
         writer.update('/doc', (doc) => {
           doc_c = doc
-          doc.c = 3
+          doc.props.c = 3
           return doc
         }),
       ])
 
       assert(doc_b !== doc_c)
 
-      assert.deepEqual(results, [{ a: 1, b: 2 }, { a: 1, b: 2, c: 3 }])
+      assert.deepEqual(results, [
+        { props: { a: 1, b: 2 } },
+        { props: { a: 1, b: 2, c: 3 } }
+      ])
 
       let doc = await checker.get('/doc')
-      assert.deepEqual(doc, { a: 1, b: 2, c: 3 })
+      assert.deepEqual(doc, { props: { a: 1, b: 2, c: 3 } })
     })
   })
 
