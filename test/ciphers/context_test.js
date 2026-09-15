@@ -54,6 +54,12 @@ describe('Context', () => {
     assert.throws(() => ctx.add({ a: 1 }))
   })
 
+  it('ignores inherited properties when adding keys', () => {
+    let obj = Object.create({ a: 1 }, { b: { value: 2, enumerable: true } })
+    let ctx = Context.create('foo', obj)
+    assert.deepEqual(ctx.toObject(), { 'foo.b': 2 })
+  })
+
   it('allows matching keys to be added with different prefixes', () => {
     let ctx = Context.create('foo', { a: 1 })
         .prefix('bar').add({ a: 2 })
