@@ -11,6 +11,7 @@ const testCipherBehaviour = require('./behaviour')
 
 describe('PasswordCipher', () => {
   let params = { password: 'hello', iterations: 100 }
+  let context = Context.create()
 
   testCipherBehaviour({
     async createCipher () {
@@ -35,14 +36,14 @@ describe('PasswordCipher', () => {
 
     it('will only decrypt with matching config parameters', async () => {
       let msg = Buffer.from('toy ornithopter', 'utf8')
-      let enc = await cipher.encrypt(msg)
+      let enc = await cipher.encrypt(msg, context)
 
       let correct = await PasswordCipher.create({ ...params, salt })
-      let dec = await correct.decrypt(enc)
+      let dec = await correct.decrypt(enc, context)
       assert.equal(dec.toString('utf8'), 'toy ornithopter')
 
       let modified = await PasswordCipher.create({ ...params, salt, extra: 5 })
-      let error = await modified.decrypt(enc).catch(e => e)
+      let error = await modified.decrypt(enc, context).catch(e => e)
       assert.equal(error.code, 'ERR_DECRYPT')
     })
   })

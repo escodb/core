@@ -5,17 +5,18 @@ const { assert } = require('chai')
 const Context = require('../../lib/ciphers/context')
 
 function testCipherBehaviour (impl) {
-  let cipher, message
+  let cipher, context, message
 
   beforeEach(async () => {
     cipher = await impl.createCipher()
+    context = Context.create()
 
     // 48 bytes, i.e. 3x 16-byte blocks
     message = Buffer.from('the quick brown fox jumps over the slow lazy dog', 'utf8')
   })
 
   it('encrypts a message', async () => {
-    let enc = await cipher.encrypt(message)
+    let enc = await cipher.encrypt(message, context)
 
     assert.instanceOf(enc, Buffer)
 
@@ -25,15 +26,15 @@ function testCipherBehaviour (impl) {
   })
 
   it('returns a different ciphertext each time', async () => {
-    let enc1 = await cipher.encrypt(message)
-    let enc2 = await cipher.encrypt(message)
+    let enc1 = await cipher.encrypt(message, context)
+    let enc2 = await cipher.encrypt(message, context)
 
     assert.notEqual(enc1.toString('base64'), enc2.toString('base64'))
   })
 
   it('decrypts an encrypted message', async () => {
-    let enc = await cipher.encrypt(message)
-    let dec = await cipher.decrypt(enc)
+    let enc = await cipher.encrypt(message, context)
+    let dec = await cipher.decrypt(enc, context)
 
     assert.equal(dec.toString('utf8'), message)
   })
@@ -56,12 +57,12 @@ function testCipherBehaviour (impl) {
     assert.equal(dec.toString('utf8'), message)
   })
 
-  it('fails to decrypt a message with no binding context', async () => {
+  it('fails to decrypt a message with an empty binding context', async () => {
     let aad = Buffer.from('binding context', 'utf8')
     let ctx = Context.create(null, { n: 42 })
     let enc = await cipher.encrypt(message, ctx)
 
-    let error = await cipher.decrypt(enc).catch(e => e)
+    let error = await cipher.decrypt(enc, context).catch(e => e)
     assert.equal(error.code, 'ERR_DECRYPT')
   })
 

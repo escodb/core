@@ -16,25 +16,27 @@ const { assert } = require('chai')
 const LIMIT = 10
 
 describe('KeySequenceCipher', () => {
+  let keyCtx = Context.create(null, { a: 'foo', b: 'bar' })
+  let msgCtx = Context.create()
+
   testCipherBehaviour({
     async createCipher () {
       let root = await generate(AesGcmCipher)
       let verifier = await generate(Verifier)
-      return new KeySequenceCipher(Context.create(), root, verifier)
+      return new KeySequenceCipher(keyCtx, root, verifier)
     }
   })
 
   describe('authentication', () => {
-    let context = Context.create(null, { a: 'foo', b: 'bar' })
     let root, verifier, cipher
 
     beforeEach(async () => {
       root = await generate(AesGcmCipher)
       verifier = await generate(Verifier)
-      cipher = new KeySequenceCipher(context, root, verifier, { limit: LIMIT })
+      cipher = new KeySequenceCipher(keyCtx, root, verifier, { limit: LIMIT })
 
       for (let i = 0; i < 1.5 * LIMIT; i++) {
-        await cipher.encrypt(Buffer.from('a message', 'utf8'))
+        await cipher.encrypt(Buffer.from('a message', 'utf8'), msgCtx)
       }
     })
 
@@ -53,7 +55,7 @@ describe('KeySequenceCipher', () => {
         0, 0, 0, 0, 0, 0, 0, 10
       ])
 
-      let ctx = context.prefix('keyseq').add({ keys, state })
+      let ctx = keyCtx.prefix('keyseq').add({ keys, state })
       let signature = await verifier.sign(ctx)
 
       assert.equal(mac, signature)
@@ -61,13 +63,13 @@ describe('KeySequenceCipher', () => {
 
     it('parses a state with a valid context', async () => {
       let state = await cipher.serialize()
-      let parsed = await KeySequenceCipher.parse(state, context, root, verifier)
+      let parsed = await KeySequenceCipher.parse(state, keyCtx, root, verifier)
       assert.instanceOf(parsed, KeySequenceCipher)
     })
 
     it('rejects a state with a different context', async () => {
       let state = await cipher.serialize()
-      let wrong = context.add({ diff: 'context' })
+      let wrong = keyCtx.add({ diff: 'context' })
       let error = await KeySequenceCipher.parse(state, wrong, root, verifier).catch(e => e)
       assert.equal(error.code, 'ERR_AUTH_FAILED')
     })
@@ -82,7 +84,7 @@ describe('KeySequenceCipher', () => {
       key = binaries.dump(['u32', 'bytes'], [seq, cell])
       state.keys[0] = key.toString('base64')
 
-      let error = await KeySequenceCipher.parse(state, context, root, verifier).catch(e => e)
+      let error = await KeySequenceCipher.parse(state, keyCtx, root, verifier).catch(e => e)
       assert.equal(error.code, 'ERR_AUTH_FAILED')
     })
 
@@ -92,7 +94,7 @@ describe('KeySequenceCipher', () => {
       let [a, b, ...rest] = state.keys
       state.keys = [b, a, ...rest]
 
-      let error = await KeySequenceCipher.parse(state, context, root, verifier).catch(e => e)
+      let error = await KeySequenceCipher.parse(state, keyCtx, root, verifier).catch(e => e)
       assert.equal(error.code, 'ERR_AUTH_FAILED')
     })
 
@@ -116,7 +118,7 @@ describe('KeySequenceCipher', () => {
         return counters
       })
 
-      let error = await KeySequenceCipher.parse(state, context, root, verifier).catch(e => e)
+      let error = await KeySequenceCipher.parse(state, keyCtx, root, verifier).catch(e => e)
       assert.equal(error.code, 'ERR_AUTH_FAILED')
     })
 
@@ -126,24 +128,23 @@ describe('KeySequenceCipher', () => {
         return [b, a, ...rest]
       })
 
-      let error = await KeySequenceCipher.parse(state, context, root, verifier).catch(e => e)
+      let error = await KeySequenceCipher.parse(state, keyCtx, root, verifier).catch(e => e)
       assert.equal(error.code, 'ERR_AUTH_FAILED')
     })
   })
 
   describe('key rotation', () => {
-    let context = Context.create()
     let root, verifier, cipher
 
     beforeEach(async () => {
       root = await generate(AesGcmCipher)
       verifier = await generate(Verifier)
-      cipher = new KeySequenceCipher(context, root, verifier, { limit: LIMIT })
+      cipher = new KeySequenceCipher(keyCtx, root, verifier, { limit: LIMIT })
     })
 
     it('encrypts up to the limit with a single key', async () => {
       for (let i = 0; i < LIMIT; i++) {
-        await cipher.encrypt(Buffer.from('a message', 'utf8'))
+        await cipher.encrypt(Buffer.from('a message', 'utf8'), msgCtx)
       }
       assert.equal(cipher.size(), 1)
     })
@@ -152,7 +153,7 @@ describe('KeySequenceCipher', () => {
       let message = Buffer.from('a message', 'utf8')
 
       for (let i = 0; i < 3 * LIMIT + 1; i++) {
-        await cipher.encrypt(message)
+        await cipher.encrypt(message, msgCtx)
       }
       assert.equal(cipher.size(), 4)
     })
@@ -162,7 +163,7 @@ describe('KeySequenceCipher', () => {
       let ops = []
 
       for (let i = 0; i < 3 * LIMIT + 1; i++) {
-        ops.push(cipher.encrypt(message))
+        ops.push(cipher.encrypt(message, msgCtx))
       }
 
       await Promise.all(ops)
@@ -176,8 +177,8 @@ describe('KeySequenceCipher', () => {
         messages.push(crypto.randomBytes(16))
       }
 
-      let encs = await Promise.all(messages.map((msg) => cipher.encrypt(msg)))
-      let decs = await Promise.all(encs.map((enc) => cipher.decrypt(enc)))
+      let encs = await Promise.all(messages.map((msg) => cipher.encrypt(msg, msgCtx)))
+      let decs = await Promise.all(encs.map((enc) => cipher.decrypt(enc, msgCtx)))
 
       assert(messages.length > 0)
       assert.equal(messages.length, decs.length)
@@ -188,9 +189,9 @@ describe('KeySequenceCipher', () => {
     })
 
     it('rejects ciphertexts with bad sequence numbers', async () => {
-      let enc = await cipher.encrypt(Buffer.from('hi', 'utf8'))
+      let enc = await cipher.encrypt(Buffer.from('hi', 'utf8'), msgCtx)
       enc.writeUInt32BE(42, 0)
-      let error = await cipher.decrypt(enc).catch(e => e)
+      let error = await cipher.decrypt(enc, msgCtx).catch(e => e)
       assert.equal(error.code, 'ERR_MISSING_KEY')
     })
 
@@ -203,26 +204,26 @@ describe('KeySequenceCipher', () => {
       let b = n * LIMIT
 
       for (let i = 0; i < a; i++) {
-        encs.push(await cipher.encrypt(message))
+        encs.push(await cipher.encrypt(message, msgCtx))
       }
       assert.equal(cipher.size(), n)
 
       let state = await cipher.serialize()
-      let copy = await KeySequenceCipher.parse(state, context, root, verifier, { limit: LIMIT })
+      let copy = await KeySequenceCipher.parse(state, keyCtx, root, verifier, { limit: LIMIT })
 
       for (let i = a; i < b; i++) {
-        encs.push(await copy.encrypt(message))
+        encs.push(await copy.encrypt(message, msgCtx))
       }
       assert.equal(copy.size(), n)
 
-      encs.push(await copy.encrypt(message))
+      encs.push(await copy.encrypt(message, msgCtx))
       assert.equal(copy.size(), n + 1)
 
       for (let [i, enc] of encs.entries()) {
         if (i < b) {
-          assert.equal(await cipher.decrypt(enc), 'the message')
+          assert.equal(await cipher.decrypt(enc, msgCtx), 'the message')
         }
-        assert.equal(await copy.decrypt(enc), 'the message')
+        assert.equal(await copy.decrypt(enc, msgCtx), 'the message')
       }
     })
 
@@ -232,20 +233,20 @@ describe('KeySequenceCipher', () => {
 
       async function clone (cipher) {
         let state = await cipher.serialize()
-        return KeySequenceCipher.parse(state, context, root, verifier, { limit: LIMIT })
+        return KeySequenceCipher.parse(state, keyCtx, root, verifier, { limit: LIMIT })
       }
 
       beforeEach(async () => {
         for (let i = 0; i < 3 * LIMIT - 2; i++) {
-          await cipher.encrypt(message)
+          await cipher.encrypt(message, msgCtx)
         }
 
         alice = await clone(cipher)
         bob = await clone(cipher)
 
         for (let i = 0; i < LIMIT / 2; i++) {
-          await alice.encrypt(message)
-          await bob.encrypt(message)
+          await alice.encrypt(message, msgCtx)
+          await bob.encrypt(message, msgCtx)
         }
       })
 
