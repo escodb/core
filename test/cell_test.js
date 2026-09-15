@@ -10,11 +10,12 @@ const { assert } = require('chai')
 const { generate } = require('./utils')
 
 describe('Cell', () => {
-  let cipher, cell
+  let cipher, context, cell
 
   beforeEach(async () => {
     cipher = await generate(AesGcmCipher)
-    cell = new Cell(cipher, JsonCodec)
+    context = Context.create()
+    cell = new Cell(cipher, context, { codec: JsonCodec })
   })
 
   it('returns nothing when empty', async () => {
@@ -55,7 +56,7 @@ describe('Cell', () => {
     cell.set({ secret: 'machine' })
     let buf1 = await cell.serialize()
 
-    let cell2 = new Cell(cipher, JsonCodec)
+    let cell2 = new Cell(cipher, context, { codec: JsonCodec })
     cell2.set({ secret: 'machine' })
     let buf2 = await cell2.serialize()
 
@@ -77,7 +78,7 @@ describe('Cell', () => {
     cell.set({ ok: 'cool' })
     let encrypted = await cell.serialize()
 
-    let cell2 = new Cell(cipher, JsonCodec, { data: encrypted })
+    let cell2 = new Cell(cipher, context, { codec: JsonCodec, data: encrypted })
 
     let value = await cell2.get()
     assert.deepEqual(value, { ok: 'cool' })
@@ -87,7 +88,7 @@ describe('Cell', () => {
     cell.set({ hidden: 'track' })
     let buf1 = await cell.serialize()
 
-    let copy = new Cell(cipher, JsonCodec, { data: buf1 })
+    let copy = new Cell(cipher, context, { codec: JsonCodec, data: buf1 })
     let buf2 = await copy.serialize()
 
     assert.equal(buf1, buf2)
@@ -97,7 +98,7 @@ describe('Cell', () => {
     cell.set({ hidden: 'track' })
     let buf1 = await cell.serialize()
 
-    let copy = new Cell(cipher, JsonCodec, { data: buf1 })
+    let copy = new Cell(cipher, context, { codec: JsonCodec, data: buf1 })
     copy.set({ different: 'data' })
     let buf2 = await copy.serialize()
 
@@ -125,7 +126,7 @@ describe('Cell', () => {
     cell.set({ ok: 'cool' })
     let encrypted = await cell.serialize()
 
-    let cell2 = new Cell(cipher, JsonCodec, { data: encrypted })
+    let cell2 = new Cell(cipher, context, { codec: JsonCodec, data: encrypted })
 
     let val1 = await cell2.get()
     let val2 = await cell2.get()
@@ -134,11 +135,9 @@ describe('Cell', () => {
   })
 
   describe('context binding', () => {
-    let context
-
     beforeEach(() => {
       context = Context.create(null, { n: 42 })
-      cell = new Cell(cipher, JsonCodec, { context })
+      cell = new Cell(cipher, context, { codec: JsonCodec })
     })
 
     it('returns nothing when empty', async () => {
@@ -162,7 +161,7 @@ describe('Cell', () => {
       cell.set({ secret: 'machine' })
       let buf = await cell.serialize()
 
-      cell = new Cell(cipher, JsonCodec, { context, data: buf })
+      cell = new Cell(cipher, context, { codec: JsonCodec, data: buf })
 
       let value = await cell.get()
       assert.deepEqual(value, { secret: 'machine' })
@@ -173,7 +172,7 @@ describe('Cell', () => {
       let buf = await cell.serialize()
 
       let wrong = Context.create(null, { n: 43 })
-      cell = new Cell(cipher, JsonCodec, { context: wrong, data: buf })
+      cell = new Cell(cipher, wrong, { codec: JsonCodec, data: buf })
 
       let error = await cell.get().catch(e => e)
       assert.equal(error.code, 'ERR_DECRYPT')
@@ -184,17 +183,17 @@ describe('Cell', () => {
       let buf = await cell.serialize()
 
       let wrong = context.add({ extra: 1 })
-      cell = new Cell(cipher, JsonCodec, { context: wrong, data: buf })
+      cell = new Cell(cipher, wrong, { codec: JsonCodec, data: buf })
 
       let error = await cell.get().catch(e => e)
       assert.equal(error.code, 'ERR_DECRYPT')
     })
 
-    it('fails to decrypt without any context', async () => {
+    it('fails to decrypt without an empty context', async () => {
       cell.set({ secret: 'machine' })
       let buf = await cell.serialize()
 
-      cell = new Cell(cipher, JsonCodec, { data: buf })
+      cell = new Cell(cipher, Context.create(), { codec: JsonCodec, data: buf })
 
       let error = await cell.get().catch(e => e)
       assert.equal(error.code, 'ERR_DECRYPT')
@@ -202,17 +201,17 @@ describe('Cell', () => {
 
     it('ignores the order of context fields', async () => {
       context = Context.create(null, { a: 1, b: 2 })
-      cell = new Cell(cipher, JsonCodec, { context })
+      cell = new Cell(cipher, context, { codec: JsonCodec })
       cell.set({ outer: 'wilds' })
       let buf = await cell.serialize()
 
       let ctx = Context.create()
 
-      let cell1 = new Cell(cipher, JsonCodec, { context: ctx.add({ a: 1, b: 2 }), data: buf })
+      let cell1 = new Cell(cipher, ctx.add({ a: 1, b: 2 }), { codec: JsonCodec, data: buf })
       let val1 = await cell1.get()
       assert.deepEqual(val1, { outer: 'wilds' })
 
-      let cell2 = new Cell(cipher, JsonCodec, { context: ctx.add({ b: 2, a: 1 }), data: buf })
+      let cell2 = new Cell(cipher, ctx.add({ b: 2, a: 1 }), { codec: JsonCodec, data: buf })
       let val2 = await cell2.get()
       assert.deepEqual(val2, { outer: 'wilds' })
     })
@@ -220,7 +219,7 @@ describe('Cell', () => {
 
   describe('output format', () => {
     beforeEach(() => {
-      cell = new Cell(cipher, JsonCodec, { format: 'hex' })
+      cell = new Cell(cipher, context, { codec: JsonCodec, format: 'hex' })
     })
 
     it('serialises to the requested format', async () => {
@@ -234,7 +233,7 @@ describe('Cell', () => {
       cell.set({ some: 'value' })
 
       let buf = await cell.serialize()
-      let copy = new Cell(cipher, JsonCodec, { format: 'hex', data: buf })
+      let copy = new Cell(cipher, context, { codec: JsonCodec, format: 'hex', data: buf })
 
       let value = await copy.get()
       assert.deepEqual(value, { some: 'value' })
